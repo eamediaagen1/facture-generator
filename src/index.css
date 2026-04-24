@@ -31,11 +31,13 @@
     margin: 0;
   }
 
-  body {
+  html, body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .no-print {
@@ -46,8 +48,7 @@
     margin: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    /* Ensure the card fills the full A4 page so the footer sits at the bottom */
-    min-height: 100vh !important;
+    min-height: 297mm !important;
   }
 
   .inv-shadow {

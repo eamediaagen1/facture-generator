@@ -168,7 +168,7 @@ export default function InvoiceForm({
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-100 flex flex-col print:bg-white">
 
       {/* ── Toolbar ── */}
       <div className="no-print sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
@@ -282,12 +282,12 @@ export default function InvoiceForm({
 
           {/* ── Header ── */}
           <div className="bg-slate-800 px-4 sm:px-8 py-4 sm:py-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-center sm:justify-between print:justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide">{COMPANY.name}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide whitespace-nowrap">{COMPANY.name}</h1>
                 <p className="text-slate-300 text-xs sm:text-sm mt-1 italic">{COMPANY.slogan}</p>
               </div>
-              <div className="sm:text-right">
+              <div className="sm:text-right print:text-right">
                 <div className="inline-block bg-white/10 rounded-lg px-3 sm:px-4 py-2">
                   <p className="text-xs text-slate-300 uppercase tracking-wider">Facture N°</p>
                   <p className="text-white font-bold text-base sm:text-lg tracking-wide">{invoiceNum}</p>
