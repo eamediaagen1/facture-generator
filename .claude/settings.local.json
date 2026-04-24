@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof -ti:5173)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(curl -s http://localhost:5173)"
+    ]
+  }
+}

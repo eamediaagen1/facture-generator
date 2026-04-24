@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  .inv-date {
+    display: none;
+  }
+}
+
+@media print {
+  /* margin: 0 suppresses browser-generated page title and URL headers/footers */
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    background: white !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .inv-spacing {
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    /* Ensure the card fills the full A4 page so the footer sits at the bottom */
+    min-height: 100vh !important;
+  }
+
+  .inv-shadow {
+    box-shadow: none !important;
+  }
+
+  .inv-border {
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .inv-input {
+    border-bottom: 0 !important;
+  }
+
+  .inv-field {
+    border: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  .inv-date {
+    display: block !important;
+  }
+
+  input[type="date"] {
+    display: none !important;
+  }
+}
