@@ -3,11 +3,12 @@ import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import {
   Plus, Search, Eye, Edit2, Download, Trash2,
-  FileText, ChevronDown, LogOut,
+  FileText, ChevronDown, LogOut, Settings,
   Receipt, TrendingUp, CheckCircle, Clock,
 } from 'lucide-react';
-import type { Invoice, InvoiceStatus } from './types';
-import { getFactures, deleteFacture, updateStatus } from './services/factureService';
+import type { Invoice, InvoiceStatus, DocumentType } from './types';
+import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis } from './services/factureService';
+import { nextInvoiceNumber } from './services/numberingService';
 import { signOut } from './services/authService';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -18,9 +19,14 @@ const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Envoyée:   'bg-blue-50 text-blue-700',
   Payée:     'bg-emerald-50 text-emerald-700',
   Annulée:   'bg-red-50 text-red-600',
+  Envoyé:    'bg-blue-50 text-blue-700',
+  Accepté:   'bg-emerald-50 text-emerald-700',
+  Refusé:    'bg-red-50 text-red-600',
 };
 
-const SAVED_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
+const FACTURE_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
+const DEVIS_STATUSES:   InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
+const ALL_STATUSES:     InvoiceStatus[] = [...FACTURE_STATUSES, ...DEVIS_STATUSES];
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,15 +39,16 @@ function dateFR(s: string) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onNew:   () => void;
-  onEdit:  (id: string) => void;
-  onView:  (id: string) => void;
-  onPrint: (id: string) => void;
+  onNew:      (docType: DocumentType) => void;
+  onEdit:     (id: string) => void;
+  onView:     (id: string) => void;
+  onPrint:    (id: string) => void;
+  onSettings: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
+export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings }: Props) {
   const [invoices,     setInvoices]     = useState<Invoice[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [newLoading,   setNewLoading]   = useState(false);
@@ -90,9 +97,9 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
     };
   }, [invoices]);
 
-  async function handleNew() {
+  async function handleNew(docType: DocumentType) {
     setNewLoading(true);
-    await onNew();
+    await onNew(docType);
     setNewLoading(false);
   }
 
@@ -106,6 +113,32 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
     setInvoices(prev => prev.map(i => i.id === id ? { ...i, status } : i));
     try {
       await updateStatus(id, status);
+
+      if (status === 'Accepté') {
+        const devis = invoices.find(i => i.id === id);
+        if (devis?.documentType === 'devis') {
+          const alreadyExists = await factureExistsForDevis(devis.id);
+          if (!alreadyExists) {
+            const facNum = await nextInvoiceNumber();
+            await upsertFacture({
+              id:           crypto.randomUUID(),
+              number:       facNum,
+              client:       devis.client,
+              date:         devis.date,
+              items:        devis.items,
+              tvaRate:      devis.tvaRate,
+              totalHT:      devis.totalHT,
+              tvaAmount:    devis.tvaAmount,
+              totalTTC:     devis.totalTTC,
+              status:       'Générée',
+              documentType: 'facture',
+              originDevisId: devis.id,
+              createdAt:    new Date().toISOString(),
+            });
+            load();
+          }
+        }
+      }
     } catch {
       load();
     }
@@ -120,21 +153,17 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
           <div className="flex items-center gap-2 min-w-0">
             <FileText className="w-5 h-5 text-slate-700 shrink-0" />
             <span className="font-semibold text-slate-800 text-sm tracking-wide uppercase truncate">
-              Factures générées
+              AMOR AMENAGEMENT
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <NewDocMenu onNew={handleNew} loading={newLoading} />
             <button
-              onClick={handleNew}
-              disabled={newLoading}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+              onClick={onSettings}
+              title="Paramètres"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
             >
-              {newLoading
-                ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : <Plus className="w-4 h-4" />
-              }
-              <span className="hidden sm:inline">Nouvelle facture</span>
-              <span className="sm:hidden">Nouveau</span>
+              <Settings className="w-4 h-4" />
             </button>
             <button
               onClick={() => signOut()}
@@ -195,7 +224,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
               className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <option value="">Tous les statuts</option>
-              {SAVED_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <select
               value={yearFilter}
@@ -263,7 +292,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint }: Props) {
                             <span className="text-sm font-semibold text-slate-800">{fmt(inv.totalTTC)} DH</span>
                           </td>
                           <td className="px-4 py-3.5">
-                            <StatusBadge status={inv.status} onChange={s => handleStatusChange(inv.id, s)} />
+                            <StatusBadge status={inv.status} documentType={inv.documentType} onChange={s => handleStatusChange(inv.id, s)} />
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
@@ -335,7 +364,7 @@ function MobileInvoiceCard({
             : <p className="text-sm text-slate-400 italic mt-0.5">Sans client</p>
           }
         </div>
-        <StatusBadge status={inv.status} onChange={onStatusChange} />
+        <StatusBadge status={inv.status} documentType={inv.documentType} onChange={onStatusChange} />
       </div>
       {/* Row 2: date + amount + actions */}
       <div className="flex items-center justify-between gap-3">
@@ -384,9 +413,10 @@ function MetricCard({
 // ── StatusBadge (portal-based, safe inside overflow:hidden) ──────────────────
 
 function StatusBadge({
-  status, onChange,
+  status, documentType, onChange,
 }: {
   status: InvoiceStatus;
+  documentType: DocumentType;
   onChange: (s: InvoiceStatus) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -421,7 +451,7 @@ function StatusBadge({
             className="fixed z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 min-w-[150px]"
             style={{ top: pos.top, left: pos.left }}
           >
-            {SAVED_STATUSES.map(s => (
+            {(documentType === 'devis' ? DEVIS_STATUSES : FACTURE_STATUSES).map(s => (
               <button
                 key={s}
                 onClick={() => { onChange(s); setOpen(false); }}
@@ -462,5 +492,54 @@ function Btn({
     >
       {children}
     </button>
+  );
+}
+
+// ── New document dropdown ─────────────────────────────────────────────────────
+
+function NewDocMenu({ onNew, loading }: { onNew: (d: DocumentType) => void; loading: boolean }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={loading}
+        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+      >
+        {loading
+          ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          : <Plus className="w-4 h-4" />
+        }
+        <span className="hidden sm:inline">Nouveau</span>
+        <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 min-w-[150px]">
+          <button
+            onClick={() => { onNew('facture'); setOpen(false); }}
+            className="w-full text-left px-4 py-2.5 sm:py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors min-h-[44px] sm:min-h-0"
+          >
+            Facture
+          </button>
+          <button
+            onClick={() => { onNew('devis'); setOpen(false); }}
+            className="w-full text-left px-4 py-2.5 sm:py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors min-h-[44px] sm:min-h-0"
+          >
+            Devis
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

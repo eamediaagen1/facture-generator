@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { Invoice, InvoiceStatus } from '../types';
+import type { Invoice, InvoiceStatus, DocumentType } from '../types';
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
 
@@ -14,8 +14,10 @@ function toInvoice(row: Record<string, unknown>): Invoice {
     totalHT:   row.total_ht  as number,
     tvaAmount: row.tva_amount as number,
     totalTTC:  row.total_ttc as number,
-    status:    row.status    as InvoiceStatus,
-    createdAt: row.created_at as string,
+    status:        row.status         as InvoiceStatus,
+    documentType:  (row.document_type as DocumentType | undefined) ?? 'facture',
+    createdAt:     row.created_at     as string,
+    originDevisId: row.origin_devis_id as string | undefined,
   };
 }
 
@@ -30,7 +32,9 @@ function toRow(inv: Invoice) {
     total_ht:   inv.totalHT,
     tva_amount: inv.tvaAmount,
     total_ttc:  inv.totalTTC,
-    status:     inv.status,
+    status:          inv.status,
+    document_type:   inv.documentType,
+    origin_devis_id: inv.originDevisId,
   };
 }
 
@@ -77,4 +81,12 @@ export async function updateStatus(id: string, status: InvoiceStatus): Promise<v
 export async function deleteFacture(id: string): Promise<void> {
   const { error } = await supabase.from('factures').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function factureExistsForDevis(devisId: string): Promise<boolean> {
+  const { count } = await supabase
+    .from('factures')
+    .select('id', { count: 'exact', head: true })
+    .eq('origin_devis_id', devisId);
+  return (count ?? 0) > 0;
 }

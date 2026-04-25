@@ -1,13 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut } from 'lucide-react';
 import { numberToFrenchWords } from './numberToWords';
-import type { Invoice, InvoiceStatus, LineItem } from './types';
+import type { Invoice, InvoiceStatus, LineItem, DocumentType } from './types';
 import { getFacture, upsertFacture } from './services/factureService';
 import { signOut } from './services/authService';
 
+// Drop src/assets/logo.png to enable logo — falls back to company name text
+const logoFiles = import.meta.glob<string>('./assets/logo.png', { eager: true, query: '?url', import: 'default' });
+const LOGO_URL: string | null = logoFiles['./assets/logo.png'] ?? null;
+
 const COMPANY = {
   name:    'AMOR AMENAGEMENT',
-  slogan:  'Votre partenaire en amenagement et construction',
   address: 'Benjdia - CASABLANCA',
   gsm:     '06 61 46 55 55',
   ice:     '003766077000051',
@@ -17,7 +20,8 @@ const COMPANY = {
 };
 
 const MIN_TABLE_ROWS = 4;
-const SAVED_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
+const FACTURE_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
+const DEVIS_STATUSES:   InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
 
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Brouillon: 'bg-slate-100 text-slate-500',
@@ -25,6 +29,9 @@ const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Envoyée:   'bg-blue-50 text-blue-700',
   Payée:     'bg-emerald-50 text-emerald-700',
   Annulée:   'bg-red-50 text-red-600',
+  Envoyé:    'bg-blue-50 text-blue-700',
+  Accepté:   'bg-emerald-50 text-emerald-700',
+  Refusé:    'bg-red-50 text-red-600',
 };
 
 function uid()   { return crypto.randomUUID(); }
@@ -41,13 +48,14 @@ interface Props {
   mode: 'new' | 'edit' | 'view';
   invoiceNumber?: string;
   invoiceId?: string;
+  docType?: DocumentType;
   printOnLoad?: boolean;
   onBack: () => void;
   onSaved: () => void;
 }
 
 export default function InvoiceForm({
-  mode, invoiceNumber: newNumber, invoiceId, printOnLoad, onBack, onSaved,
+  mode, invoiceNumber: newNumber, invoiceId, docType: docTypeProp, printOnLoad, onBack, onSaved,
 }: Props) {
   const readOnly    = mode === 'view';
   const internalId  = useRef<string>(invoiceId ?? uid());
@@ -59,6 +67,7 @@ export default function InvoiceForm({
   const [invoiceNum, setInvoiceNum] = useState(newNumber ?? '');
   const [date,       setDate]       = useState(today());
   const [client,     setClient]     = useState('');
+  const [docType,    setDocType]    = useState<DocumentType>(docTypeProp ?? 'facture');
   const [status,     setStatus]     = useState<InvoiceStatus>('Générée');
   const [items,      setItems]      = useState<LineItem[]>([
     { id: uid(), designation: '', quantity: 1, unitPrice: 0 },
@@ -74,6 +83,7 @@ export default function InvoiceForm({
         setDate(inv.date);
         setClient(inv.client);
         setStatus(inv.status);
+        setDocType(inv.documentType ?? 'facture');
         setItems(inv.items);
       }
       setFetchLoading(false);
@@ -116,7 +126,8 @@ export default function InvoiceForm({
         number:    invoiceNum,
         client, date, items, tvaRate,
         totalHT, tvaAmount, totalTTC,
-        status:    mode === 'new' ? 'Générée' : status,
+        status:       mode === 'new' ? (docType === 'devis' ? 'Envoyé' : 'Générée') : status,
+        documentType: docType,
         createdAt: new Date().toISOString(),
       };
       await upsertFacture(invoice);
@@ -139,8 +150,11 @@ export default function InvoiceForm({
   }
 
   const titleLabel =
-    mode === 'new'  ? 'Nouvelle Facture' :
-    mode === 'edit' ? 'Modifier Facture'  : 'Aperçu Facture';
+    mode === 'new'  ? (docType === 'devis' ? 'Nouveau Devis'  : 'Nouvelle Facture') :
+    mode === 'edit' ? (docType === 'devis' ? 'Modifier Devis'  : 'Modifier Facture') :
+                      (docType === 'devis' ? 'Aperçu Devis'    : 'Aperçu Facture');
+
+  const savedStatuses = docType === 'devis' ? DEVIS_STATUSES : FACTURE_STATUSES;
 
   // Status control shared between mobile and desktop toolbars
   const statusControl = (
@@ -156,7 +170,7 @@ export default function InvoiceForm({
           onChange={e => setStatus(e.target.value as InvoiceStatus)}
           className="px-3 py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
         >
-          {SAVED_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          {savedStatuses.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       )}
       {mode === 'view' && (
@@ -281,15 +295,17 @@ export default function InvoiceForm({
         <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1">
 
           {/* ── Header ── */}
-          <div className="bg-slate-800 px-4 sm:px-8 py-4 sm:py-6">
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 sm:py-6">
             <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-center sm:justify-between print:justify-between gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide whitespace-nowrap">{COMPANY.name}</h1>
-                <p className="text-slate-300 text-xs sm:text-sm mt-1 italic">{COMPANY.slogan}</p>
+                {LOGO_URL
+                  ? <img src={LOGO_URL} alt={COMPANY.name} className="max-w-[250px] max-h-[180px] object-contain print:max-h-20" />
+                  : <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-wide whitespace-nowrap">{COMPANY.name}</h1>
+                }
               </div>
               <div className="sm:text-right print:text-right">
-                <div className="inline-block bg-white/10 rounded-lg px-3 sm:px-4 py-2">
-                  <p className="text-xs text-slate-300 uppercase tracking-wider">Facture N°</p>
+                <div className="inline-block bg-slate-800 rounded-lg px-3 sm:px-4 py-2">
+                  <p className="text-xs text-slate-300 uppercase tracking-wider">{docType === 'devis' ? 'Devis N°' : 'Facture N°'}</p>
                   <p className="text-white font-bold text-base sm:text-lg tracking-wide">{invoiceNum}</p>
                 </div>
               </div>
@@ -300,7 +316,7 @@ export default function InvoiceForm({
           <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-8">
               <div className="sm:flex-1">
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
+                <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Date</label>
                 {readOnly ? (
                   <p className="text-sm text-slate-800 py-2">{dateFR(date)}</p>
                 ) : (
@@ -316,14 +332,14 @@ export default function InvoiceForm({
                 )}
               </div>
               <div className="sm:flex-1">
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Client</label>
+                <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Client</label>
                 {readOnly ? (
                   <p className="text-sm text-slate-800 py-2 whitespace-pre-line">{client || '—'}</p>
                 ) : (
                   <textarea
                     value={client}
                     onChange={e => setClient(e.target.value)}
-                    placeholder={'Nom du client\nAdresse\nVille'}
+                    placeholder={'Nom du client\nAdresse\nICE'}
                     rows={3}
                     className="w-full px-3 py-2.5 sm:py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all resize-none inv-field"
                   />
@@ -333,17 +349,17 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Line Items ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200">
 
             {/* Desktop table — hidden on mobile screens, always visible on print */}
             <div className="hidden sm:block print:block">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-slate-50">
-                    <th className="text-left   text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3 border-b-2 border-slate-300">Designation</th>
-                    <th className="text-center text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3 border-b-2 border-slate-300 w-24">Qte</th>
-                    <th className="text-right  text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3 border-b-2 border-slate-300 w-32">P.U (DH)</th>
-                    <th className="text-right  text-xs font-semibold text-slate-600 uppercase tracking-wider px-4 py-3 border-b-2 border-slate-300 w-36">P.T.H.T (DH)</th>
+                    <th className="text-left   text-[12px] font-semibold text-slate-700 uppercase tracking-[0.04em] px-4 py-3 border-b-2 border-slate-300">Designation</th>
+                    <th className="text-center text-[12px] font-semibold text-slate-700 uppercase tracking-[0.04em] px-4 py-3 border-b-2 border-slate-300 w-24">Qte</th>
+                    <th className="text-right  text-[12px] font-semibold text-slate-700 uppercase tracking-[0.04em] px-4 py-3 border-b-2 border-slate-300 w-32">P.U (DH)</th>
+                    <th className="text-right  text-[12px] font-semibold text-slate-700 uppercase tracking-[0.04em] px-4 py-3 border-b-2 border-slate-300 w-36">P.T.H.T (DH)</th>
                     {!readOnly && <th className="w-10 border-b-2 border-slate-300 no-print" />}
                   </tr>
                 </thead>
@@ -431,16 +447,16 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200">
             <div className="flex justify-end">
               {/* Full-width on mobile, fixed 288px on desktop */}
               <div className="w-full sm:w-72">
                 <div className="flex justify-between items-center py-2 border-b border-slate-200">
-                  <span className="text-sm text-slate-600">TOTAL H.T.</span>
+                  <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TOTAL H.T.</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-200">
-                  <span className="text-sm text-slate-600">TVA ({tvaRate}%)</span>
+                  <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TVA ({tvaRate}%)</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(tvaAmount)} DH</span>
                 </div>
                 <div className="flex justify-between items-center py-2.5 bg-slate-800 -mx-3 px-3 rounded-lg mt-1">
@@ -453,7 +469,7 @@ export default function InvoiceForm({
 
           {/* ── Amount in words ── */}
           <div className="px-4 sm:px-8 py-4 border-t border-slate-200">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5">
               Arreter la presente facture a la somme de :
             </p>
             <p className="text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 italic">
@@ -464,22 +480,22 @@ export default function InvoiceForm({
           <div className="flex-1" />
 
           {/* ── Footer ── */}
-          <div className="bg-slate-800 px-4 sm:px-8 py-3">
+          <div className="border-t border-slate-500 px-4 sm:px-8 py-3">
             <div className="flex justify-center items-baseline gap-4 sm:gap-8 mb-1 flex-wrap">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[9px] font-light text-slate-400 uppercase tracking-wider">Adresse</span>
-                <span className="text-[11px] text-slate-200">{COMPANY.address}</span>
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">Adresse</span>
+                <span className="text-[11px] text-slate-700">{COMPANY.address}</span>
               </div>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-[9px] font-light text-slate-400 uppercase tracking-wider">GSM</span>
-                <span className="text-[11px] text-slate-200">{COMPANY.gsm}</span>
+                <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">GSM</span>
+                <span className="text-[11px] text-slate-700">{COMPANY.gsm}</span>
               </div>
             </div>
             <div className="flex justify-center items-baseline gap-3 sm:gap-6 flex-wrap">
               {([['ICE', COMPANY.ice], ['RC', COMPANY.rc], ['IF', COMPANY.if], ['Patente', COMPANY.patente]] as [string,string][]).map(([label, value]) => (
                 <div key={label} className="flex items-baseline gap-1">
-                  <span className="text-[9px] font-light text-slate-400 uppercase tracking-wider">{label}</span>
-                  <span className="text-[10px] sm:text-[11px] text-slate-200">{value}</span>
+                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">{label}</span>
+                  <span className="text-[10px] sm:text-[11px] text-slate-700">{value}</span>
                 </div>
               ))}
             </div>
@@ -507,7 +523,7 @@ function MobileItemCard({
     <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40 space-y-3">
       {/* Designation */}
       <div>
-        <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
+        <label className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] block mb-1.5">
           Désignation
         </label>
         {readOnly ? (
@@ -526,7 +542,7 @@ function MobileItemCard({
       {/* QTE / P.U / P.T.H.T */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">QTE</label>
+          <label className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] block mb-1.5">QTE</label>
           {readOnly ? (
             <p className="text-sm font-medium text-slate-800">{item.quantity}</p>
           ) : (
@@ -539,7 +555,7 @@ function MobileItemCard({
           )}
         </div>
         <div>
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">P.U</label>
+          <label className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] block mb-1.5">P.U</label>
           {readOnly ? (
             <p className="text-sm font-medium text-slate-800">{fmtNum(item.unitPrice)}</p>
           ) : (
@@ -552,7 +568,7 @@ function MobileItemCard({
           )}
         </div>
         <div>
-          <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">P.T.H.T</label>
+          <label className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] block mb-1.5">P.T.H.T</label>
           <p className="text-sm font-semibold text-slate-800 pt-2.5">{fmtNum(item.quantity * item.unitPrice)}</p>
         </div>
       </div>

@@ -5,9 +5,14 @@ export interface LineItem {
   unitPrice: number;
 }
 
-// Brouillon = unsaved draft in the form only; never persisted to DB.
-// Générée   = saved with a number; this is the default on first save.
-export type InvoiceStatus = 'Brouillon' | 'Générée' | 'Envoyée' | 'Payée' | 'Annulée';
+// Brouillon = unsaved draft; never persisted.
+// Générée = first facture save. Envoyé = first devis save.
+export type InvoiceStatus =
+  | 'Brouillon'
+  | 'Générée' | 'Envoyée' | 'Payée' | 'Annulée'
+  | 'Envoyé'  | 'Accepté' | 'Refusé';
+
+export type DocumentType = 'facture' | 'devis';
 
 export interface Invoice {
   id: string;
@@ -20,11 +25,14 @@ export interface Invoice {
   tvaAmount: number;
   totalTTC: number;
   status: InvoiceStatus;
+  documentType: DocumentType;
   createdAt: string;
+  originDevisId?: string;
 }
 
 export type AppPage =
   | { name: 'list' }
-  | { name: 'new'; invoiceNumber: string }
+  | { name: 'new'; invoiceNumber: string; docType: DocumentType }
   | { name: 'edit'; invoiceId: string }
-  | { name: 'view'; invoiceId: string; printOnLoad?: boolean };
+  | { name: 'view'; invoiceId: string; printOnLoad?: boolean }
+  | { name: 'settings' };

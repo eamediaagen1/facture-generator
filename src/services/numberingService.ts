@@ -1,10 +1,48 @@
 import { supabase } from './supabaseClient';
 
-// Calls the Supabase stored procedure which atomically increments the counter
-// for the current year and returns the next FAC-YYYY-NNNN string.
-// Numbers are never reused — the counter only ever increments.
+// Atomically gets the next FAC-YYYY-NNNN number, skipping any that already
+// exist in the factures table (can happen after a counter reset).
 export async function nextInvoiceNumber(): Promise<string> {
-  const { data, error } = await supabase.rpc('next_facture_number');
-  if (error) throw new Error(`Numbering failed: ${error.message}`);
-  return data as string;
+  let number: string;
+  let attempts = 0;
+  do {
+    const { data, error } = await supabase.rpc('next_facture_number');
+    if (error) throw new Error(`Numbering failed: ${error.message}`);
+    number = data as string;
+    const { count } = await supabase
+      .from('factures')
+      .select('id', { count: 'exact', head: true })
+      .eq('number', number);
+    if ((count ?? 0) === 0) break;
+    if (++attempts > 20) throw new Error('Impossible de trouver un numéro libre — vérifiez le compteur');
+  } while (true);
+  return number;
+}
+
+// Same as above but for DEV-YYYY-NNNN devis numbers.
+export async function nextDevisNumber(): Promise<string> {
+  let number: string;
+  let attempts = 0;
+  do {
+    const { data, error } = await supabase.rpc('next_devis_number');
+    if (error) throw new Error(`Numbering failed: ${error.message}`);
+    number = data as string;
+    const { count } = await supabase
+      .from('factures')
+      .select('id', { count: 'exact', head: true })
+      .eq('number', number);
+    if ((count ?? 0) === 0) break;
+    if (++attempts > 20) throw new Error('Impossible de trouver un numéro libre — vérifiez le compteur');
+  } while (true);
+  return number;
+}
+
+// Sets the facture counter for the given year to startFrom.
+// The next call to nextInvoiceNumber() will return FAC-year-(startFrom+1).
+export async function resetFactureCounter(year: number, startFrom: number): Promise<void> {
+  const { error } = await supabase.rpc('reset_facture_counter', {
+    p_year: year,
+    p_start_from: startFrom,
+  });
+  if (error) throw new Error(`Reset failed: ${error.message}`);
 }

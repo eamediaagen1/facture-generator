@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { AppPage } from './types';
 import { supabase } from './services/supabaseClient';
-import { nextInvoiceNumber } from './services/numberingService';
+import { nextInvoiceNumber, nextDevisNumber } from './services/numberingService';
 import LoginPage from './LoginPage';
 import InvoiceList from './InvoiceList';
 import InvoiceForm from './InvoiceForm';
+import SettingsPage from './SettingsPage';
 
 function Spinner() {
   return (
@@ -41,16 +42,23 @@ export default function App() {
 
   const goList = () => setPage({ name: 'list' });
 
+  if (page.name === 'settings') {
+    return <SettingsPage onBack={goList} />;
+  }
+
   if (page.name === 'list') {
     return (
       <InvoiceList
-        onNew={async () => {
-          const number = await nextInvoiceNumber();
-          setPage({ name: 'new', invoiceNumber: number });
+        onNew={async (docType) => {
+          const number = docType === 'devis'
+            ? await nextDevisNumber()
+            : await nextInvoiceNumber();
+          setPage({ name: 'new', invoiceNumber: number, docType });
         }}
-        onEdit={id  => setPage({ name: 'edit', invoiceId: id })}
-        onView={id  => setPage({ name: 'view', invoiceId: id })}
-        onPrint={id => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
+        onEdit={id       => setPage({ name: 'edit', invoiceId: id })}
+        onView={id       => setPage({ name: 'view', invoiceId: id })}
+        onPrint={id      => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
+        onSettings={() => setPage({ name: 'settings' })}
       />
     );
   }
@@ -60,6 +68,7 @@ export default function App() {
       <InvoiceForm
         mode="new"
         invoiceNumber={page.invoiceNumber}
+        docType={page.docType}
         onBack={goList}
         onSaved={goList}
       />
