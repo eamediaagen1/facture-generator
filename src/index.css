@@ -38,17 +38,59 @@
     background: white !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+  }
+
+  /* Prevent the print engine from breaking any element across pages */
+  * {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .no-print {
     display: none !important;
   }
 
+  /* Outer wrapper — just resets layout; the invoice-container controls sizing */
   .inv-spacing {
     margin: 0 !important;
+    padding: 0 !important;
     max-width: 100% !important;
     width: 100% !important;
-    min-height: 297mm !important;
+    min-height: 0 !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    flex: none !important;
+  }
+
+  /* The A4 document — exact height, clips anything that overflows */
+  .invoice-container {
+    height: 100% !important;
+    overflow: hidden !important;
+    position: relative !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  /* Footer pinned to bottom of the A4 box */
+  .invoice-footer {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  /* Tighter table cell padding in print */
+  th {
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+  }
+
+  td {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
   }
 
   .inv-shadow {

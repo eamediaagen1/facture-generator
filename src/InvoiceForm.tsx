@@ -182,7 +182,7 @@ export default function InvoiceForm({
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col print:bg-white">
+    <div className="min-h-screen bg-slate-100 flex flex-col print:bg-white print:min-h-0">
 
       {/* ── Toolbar ── */}
       <div className="no-print sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
@@ -291,11 +291,11 @@ export default function InvoiceForm({
         Desktop: centered, rounded, with vertical margin
         Print:   inv-spacing / inv-border CSS overrides handle layout
       */}
-      <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto sm:my-6 inv-spacing">
-        <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1">
+      <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto sm:my-6 inv-spacing print:flex-none">
+        <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1 invoice-container">
 
           {/* ── Header ── */}
-          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 sm:py-6">
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 sm:py-6 print:py-3">
             <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-center sm:justify-between print:justify-between gap-3">
               <div>
                 {LOGO_URL
@@ -313,7 +313,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Date & Client ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-8">
               <div className="sm:flex-1">
                 <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Date</label>
@@ -349,7 +349,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Line Items ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
 
             {/* Desktop table — hidden on mobile screens, always visible on print */}
             <div className="hidden sm:block print:block">
@@ -447,19 +447,19 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200 print:py-2">
             <div className="flex justify-end">
               {/* Full-width on mobile, fixed 288px on desktop */}
               <div className="w-full sm:w-72">
-                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                <div className="flex justify-between items-center py-2 print:py-1 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TOTAL H.T.</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                <div className="flex justify-between items-center py-2 print:py-1 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TVA ({tvaRate}%)</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(tvaAmount)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-2.5 bg-slate-800 -mx-3 px-3 rounded-lg mt-1">
+                <div className="flex justify-between items-center py-2.5 print:py-1.5 bg-slate-800 -mx-3 px-3 rounded-lg mt-1 print:mt-0.5">
                   <span className="text-sm font-bold text-white uppercase tracking-wide">Total T.T.C.</span>
                   <span className="text-lg font-bold text-white">{fmtNum(totalTTC)} DH</span>
                 </div>
@@ -468,11 +468,11 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Amount in words ── */}
-          <div className="px-4 sm:px-8 py-4 border-t border-slate-200">
-            <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5">
+          <div className="px-4 sm:px-8 py-4 print:py-2 border-t border-slate-200">
+            <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5 print:mb-1">
               Arreter la presente facture a la somme de :
             </p>
-            <p className="text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 italic">
+            <p className="text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 print:py-1.5 rounded-lg border border-slate-200 italic">
               {totalInWords}
             </p>
           </div>
@@ -480,7 +480,7 @@ export default function InvoiceForm({
           <div className="flex-1" />
 
           {/* ── Footer ── */}
-          <div className="border-t border-slate-500 px-4 sm:px-8 py-3">
+          <div className="border-t border-slate-500 px-4 sm:px-8 py-3 print:py-2 invoice-footer">
             <div className="flex justify-center items-baseline gap-4 sm:gap-8 mb-1 flex-wrap">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">Adresse</span>
