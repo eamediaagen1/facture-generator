@@ -292,10 +292,10 @@ export default function InvoiceForm({
         Print:   inv-spacing / inv-border CSS overrides handle layout
       */}
       <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto sm:my-6 inv-spacing print:flex-none">
-        <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1 invoice-container">
+        <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1 invoice-page">
 
           {/* ── Header ── */}
-          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-4 sm:py-6 print:py-3">
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 print:px-8 py-4 sm:py-6 print:py-3 shrink-0">
             <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-center sm:justify-between print:justify-between gap-3">
               <div>
                 {LOGO_URL
@@ -312,9 +312,11 @@ export default function InvoiceForm({
             </div>
           </div>
 
+          <div className="flex-1 invoice-body">
+
           {/* ── Date & Client ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-8">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-3">
+            <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-start sm:justify-between print:justify-between gap-4 sm:gap-8 print:gap-8">
               <div className="sm:flex-1">
                 <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Date</label>
                 {readOnly ? (
@@ -349,7 +351,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Line Items ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
 
             {/* Desktop table — hidden on mobile screens, always visible on print */}
             <div className="hidden sm:block print:block">
@@ -447,10 +449,10 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200 print:py-2">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200 print:py-2">
             <div className="flex justify-end">
-              {/* Full-width on mobile, fixed 288px on desktop */}
-              <div className="w-full sm:w-72">
+              {/* Full-width on mobile, fixed 288px on desktop/print */}
+              <div className="w-full sm:w-72 print:w-72 print:ml-auto">
                 <div className="flex justify-between items-center py-2 print:py-1 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TOTAL H.T.</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
@@ -468,7 +470,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Amount in words ── */}
-          <div className="px-4 sm:px-8 py-4 print:py-2 border-t border-slate-200">
+          <div className="px-4 sm:px-8 print:px-8 py-4 print:py-2 border-t border-slate-200">
             <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5 print:mb-1">
               Arreter la presente facture a la somme de :
             </p>
@@ -477,10 +479,10 @@ export default function InvoiceForm({
             </p>
           </div>
 
-          <div className="flex-1" />
+          </div>{/* end invoice-body */}
 
           {/* ── Footer ── */}
-          <div className="border-t border-slate-500 px-4 sm:px-8 py-3 print:py-2 invoice-footer">
+          <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-3 print:py-2 invoice-footer shrink-0">
             <div className="flex justify-center items-baseline gap-4 sm:gap-8 mb-1 flex-wrap">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">Adresse</span>
