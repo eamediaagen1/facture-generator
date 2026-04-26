@@ -5,7 +5,9 @@
       "Bash(npx tsc *)",
       "Bash(npx vite *)",
       "Bash(pkill -f \"vite\")",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(xxd)",
+      "Bash(python3 -)"
     ]
   }
 }

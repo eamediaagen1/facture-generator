@@ -28,6 +28,53 @@ export interface Invoice {
   documentType: DocumentType;
   createdAt: string;
   originDevisId?: string;
+  clientId?: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  ice: string;
+  if_number: string;
+  rc: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+  contact_person: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientDocument {
+  id: string;
+  client_id: string;
+  file_name: string;
+  file_path: string;
+  file_url: string;
+  file_type: string;
+  created_at: string;
+}
+
+export type AchatPaymentStatus = 'Non payé' | 'Payé';
+
+export interface Achat {
+  id: string;
+  supplier_name: string;
+  invoice_date: string;
+  supplier_invoice_number: string;
+  description: string;
+  category: string;
+  amount_ht: number;
+  tva: number;
+  amount_ttc: number;
+  payment_status: AchatPaymentStatus;
+  notes: string;
+  file_url: string | null;
+  file_path: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export type AppPage =
@@ -35,4 +82,12 @@ export type AppPage =
   | { name: 'new'; invoiceNumber: string; docType: DocumentType }
   | { name: 'edit'; invoiceId: string }
   | { name: 'view'; invoiceId: string; printOnLoad?: boolean }
-  | { name: 'settings' };
+  | { name: 'settings' }
+  | { name: 'achats' }
+  | { name: 'achat-new' }
+  | { name: 'achat-edit'; achatId: string }
+  | { name: 'achat-view'; achatId: string }
+  | { name: 'clients' }
+  | { name: 'client-new' }
+  | { name: 'client-edit'; clientId: string }
+  | { name: 'client-view'; clientId: string };

@@ -46,3 +46,13 @@ export async function resetFactureCounter(year: number, startFrom: number): Prom
   });
   if (error) throw new Error(`Reset failed: ${error.message}`);
 }
+
+// Sets the devis counter for the given year to startFrom.
+// The next call to nextDevisNumber() will return DEV-year-(startFrom+1).
+export async function resetDevisCounter(year: number, startFrom: number): Promise<void> {
+  const { error } = await supabase.rpc('reset_devis_counter', {
+    p_year: year,
+    p_start_from: startFrom,
+  });
+  if (error) throw new Error(`Reset failed: ${error.message}`);
+}

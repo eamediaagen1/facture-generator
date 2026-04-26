@@ -18,6 +18,7 @@ function toInvoice(row: Record<string, unknown>): Invoice {
     documentType:  (row.document_type as DocumentType | undefined) ?? 'facture',
     createdAt:     row.created_at     as string,
     originDevisId: row.origin_devis_id as string | undefined,
+    clientId:      row.client_id       as string | undefined,
   };
 }
 
@@ -35,6 +36,7 @@ function toRow(inv: Invoice) {
     status:          inv.status,
     document_type:   inv.documentType,
     origin_devis_id: inv.originDevisId,
+    client_id:       inv.clientId ?? null,
   };
 }
 
@@ -81,6 +83,16 @@ export async function updateStatus(id: string, status: InvoiceStatus): Promise<v
 export async function deleteFacture(id: string): Promise<void> {
   const { error } = await supabase.from('factures').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function getFacturesByClientId(clientId: string): Promise<Invoice[]> {
+  const { data, error } = await supabase
+    .from('factures')
+    .select('*')
+    .eq('client_id', clientId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(toInvoice);
 }
 
 export async function factureExistsForDevis(devisId: string): Promise<boolean> {

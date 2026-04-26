@@ -24,23 +24,28 @@
   }
 }
 
-@media print {
-  /* margin: 0 suppresses browser-generated page title and URL headers/footers */
-  @page {
-    size: A4;
-    margin: 0;
-  }
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
 
-  html, body {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-    color-adjust: exact !important;
-    background: white !important;
+@media print {
+  html,
+  body {
     margin: 0 !important;
     padding: 0 !important;
+    background: white !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   * {
+    box-sizing: border-box !important;
+  }
+
+  .invoice-page,
+  .inv-spacing {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -49,60 +54,37 @@
     display: none !important;
   }
 
-  /* Outer wrapper — reset so invoice-page controls everything */
   .inv-spacing {
     margin: 0 !important;
     padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 0 !important;
-    height: auto !important;
-    overflow: visible !important;
-    flex: none !important;
-  }
-
-  /* A4 invoice page — fixed size, flex column */
-  .invoice-page {
     width: 210mm !important;
+    max-width: 210mm !important;
     height: 297mm !important;
     min-height: 297mm !important;
+    max-height: 297mm !important;
+    background: white !important;
+    overflow: hidden !important;
+  }
+
+  .invoice-page {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: white !important;
     display: flex !important;
     flex-direction: column !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    overflow: hidden !important;
     box-shadow: none !important;
     border-radius: 0 !important;
     border: none !important;
-    overflow: hidden !important;
-    page-break-after: avoid !important;
-    page-break-inside: avoid !important;
-    box-sizing: border-box !important;
   }
 
-  /* Body grows to fill space between header and footer */
-  .invoice-body {
-    flex: 1 !important;
-    overflow: hidden !important;
-    min-height: 0 !important;
-  }
-
-  /* Footer is a normal flex child — always at bottom, never compressed */
   .invoice-footer {
-    position: static !important;
-    bottom: auto !important;
     flex-shrink: 0 !important;
-  }
-
-  /* Tighter table cell padding in print */
-  th {
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-  }
-
-  td {
-    padding-top: 3px !important;
-    padding-bottom: 3px !important;
+    position: static !important;
   }
 
   .inv-shadow {
@@ -110,19 +92,16 @@
   }
 
   .inv-border {
-    border: 0 !important;
     border-radius: 0 !important;
   }
 
-  .inv-input {
-    border-bottom: 0 !important;
-  }
-
+  /*
+    IMPORTANT:
+    Keep inputs/textarea styling in print so PDF looks like app preview.
+    Do NOT remove borders, padding, or backgrounds.
+  */
   .inv-field {
-    border: 0 !important;
-    padding: 0 !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
   }
 
   .inv-date {
@@ -132,4 +111,5 @@
   input[type="date"] {
     display: none !important;
   }
+
 }

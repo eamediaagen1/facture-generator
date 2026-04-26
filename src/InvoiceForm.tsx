@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut } from 'lucide-react';
 import { numberToFrenchWords } from './numberToWords';
-import type { Invoice, InvoiceStatus, LineItem, DocumentType } from './types';
+import type { Invoice, InvoiceStatus, LineItem, DocumentType, Client } from './types';
 import { getFacture, upsertFacture } from './services/factureService';
+import { getClients } from './services/clientService';
 import { signOut } from './services/authService';
 
 // Drop src/assets/logo.png to enable logo — falls back to company name text
@@ -11,12 +12,13 @@ const LOGO_URL: string | null = logoFiles['./assets/logo.png'] ?? null;
 
 const COMPANY = {
   name:    'AMOR AMENAGEMENT',
-  address: 'Benjdia - CASABLANCA',
-  gsm:     '06 61 46 55 55',
+  address: '05 Rue Dixmude 1er Etage Appt N°2 Benjdia - CASABLANCA',
+  gsm:     '06 61 09 70 63',
   ice:     '003766077000051',
   rc:      '688445',
   if:      '68308643',
   patente: '34214765',
+  CNSS:   '.',
 };
 
 const MIN_TABLE_ROWS = 4;
@@ -74,6 +76,17 @@ export default function InvoiceForm({
   ]);
   const tvaRate = 20;
 
+  // CRM client link
+  const [clientId,     setClientId]     = useState<string | null>(null);
+  const [crmClients,   setCrmClients]   = useState<Client[]>([]);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showDrop,     setShowDrop]     = useState(false);
+
+  useEffect(() => {
+    if (readOnly) return;
+    getClients().then(setCrmClients).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (mode === 'new') return;
     setFetchLoading(true);
@@ -85,6 +98,7 @@ export default function InvoiceForm({
         setStatus(inv.status);
         setDocType(inv.documentType ?? 'facture');
         setItems(inv.items);
+        setClientId(inv.clientId ?? null);
       }
       setFetchLoading(false);
     });
@@ -117,6 +131,27 @@ export default function InvoiceForm({
   const totalInWords = numberToFrenchWords(totalTTC);
   const placeholders = Math.max(0, MIN_TABLE_ROWS - items.length);
 
+  function selectCrmClient(c: Client) {
+    setClientId(c.id);
+    setClientSearch('');
+    setShowDrop(false);
+    const lines = [
+      c.name,
+      [c.address, c.city].filter(Boolean).join(', '),
+      c.ice ? `ICE : ${c.ice}` : '',
+    ].filter(Boolean);
+    setClient(lines.join('\n'));
+  }
+
+  function clearCrmClient() {
+    setClientId(null);
+  }
+
+  const linkedClient = clientId ? crmClients.find(c => c.id === clientId) : null;
+  const dropClients  = clientSearch
+    ? crmClients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase())).slice(0, 8)
+    : crmClients.slice(0, 8);
+
   async function handleSave() {
     setSaving(true);
     setError('');
@@ -128,7 +163,8 @@ export default function InvoiceForm({
         totalHT, tvaAmount, totalTTC,
         status:       mode === 'new' ? (docType === 'devis' ? 'Envoyé' : 'Générée') : status,
         documentType: docType,
-        createdAt: new Date().toISOString(),
+        createdAt:    new Date().toISOString(),
+        clientId:     clientId ?? undefined,
       };
       await upsertFacture(invoice);
       onSaved();
@@ -182,7 +218,7 @@ export default function InvoiceForm({
   );
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col print:bg-white print:min-h-0">
+    <div className="min-h-screen bg-slate-100 print:bg-white print:min-h-0">
 
       {/* ── Toolbar ── */}
       <div className="no-print sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
@@ -291,11 +327,11 @@ export default function InvoiceForm({
         Desktop: centered, rounded, with vertical margin
         Print:   inv-spacing / inv-border CSS overrides handle layout
       */}
-      <div className="flex-1 flex flex-col w-full max-w-4xl mx-auto sm:my-6 inv-spacing print:flex-none">
-        <div className="bg-white sm:shadow-lg inv-shadow sm:rounded-xl sm:border sm:border-slate-200 inv-border overflow-hidden flex flex-col flex-1 invoice-page">
+      <div className="w-[794px] mx-auto my-6 print:my-0 inv-spacing print:flex-none">
+        <div className="bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page">
 
           {/* ── Header ── */}
-          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 print:px-8 py-4 sm:py-6 print:py-3 shrink-0">
+          <div className="bg-white border-b border-slate-200 px-4 sm:px-8 print:px-8 py-4 sm:py-6 shrink-0 invoice-header">
             <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-center sm:justify-between print:justify-between gap-3">
               <div>
                 {LOGO_URL
@@ -312,12 +348,14 @@ export default function InvoiceForm({
             </div>
           </div>
 
-          <div className="flex-1 invoice-body">
+
+          {/* ── Body ── */}
+          <div className="invoice-body flex-1 min-h-0">
 
           {/* ── Date & Client ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-3">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row print:flex-row sm:items-start print:items-start sm:justify-between print:justify-between gap-4 sm:gap-8 print:gap-8">
-              <div className="sm:flex-1">
+              <div className="sm:flex-1 print:flex-1">
                 <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Date</label>
                 {readOnly ? (
                   <p className="text-sm text-slate-800 py-2">{dateFR(date)}</p>
@@ -333,8 +371,57 @@ export default function InvoiceForm({
                   </>
                 )}
               </div>
-              <div className="sm:flex-1">
+              <div className="sm:flex-1 print:flex-1">
                 <label className="block text-[14px] font-bold text-slate-700 uppercase tracking-[0.04em] mb-1.5">Client</label>
+
+                {/* CRM selector — edit mode only, never printed */}
+                {!readOnly && (
+                  <div className="relative mb-2 no-print">
+                    {linkedClient ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <span className="text-xs font-medium text-emerald-700 flex-1 truncate">✓ {linkedClient.name}</span>
+                        <button
+                          type="button"
+                          onClick={clearCrmClient}
+                          className="text-emerald-500 hover:text-emerald-800 transition-colors"
+                          title="Désélectionner"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 1l12 12M13 1L1 13"/>
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Lier à un client CRM…"
+                          value={clientSearch}
+                          onChange={e => { setClientSearch(e.target.value); setShowDrop(true); }}
+                          onFocus={() => setShowDrop(true)}
+                          onBlur={() => setTimeout(() => setShowDrop(false), 150)}
+                          className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-700 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white transition-all"
+                        />
+                        {showDrop && dropClients.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-20 max-h-44 overflow-y-auto">
+                            {dropClients.map(c => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onMouseDown={e => { e.preventDefault(); selectCrmClient(c); }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-baseline gap-2"
+                              >
+                                <span className="font-medium">{c.name}</span>
+                                {c.city && <span className="text-xs text-slate-400">{c.city}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {readOnly ? (
                   <p className="text-sm text-slate-800 py-2 whitespace-pre-line">{client || '—'}</p>
                 ) : (
@@ -351,7 +438,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Line Items ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200 print:py-2">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200">
 
             {/* Desktop table — hidden on mobile screens, always visible on print */}
             <div className="hidden sm:block print:block">
@@ -449,19 +536,19 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200 print:py-2">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200">
             <div className="flex justify-end">
               {/* Full-width on mobile, fixed 288px on desktop/print */}
-              <div className="w-full sm:w-72 print:w-72 print:ml-auto">
-                <div className="flex justify-between items-center py-2 print:py-1 border-b border-slate-200">
+              <div className="w-full sm:w-72 print:w-72">
+                <div className="flex justify-between items-center py-2 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TOTAL H.T.</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-2 print:py-1 border-b border-slate-200">
+                <div className="flex justify-between items-center py-2 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TVA ({tvaRate}%)</span>
                   <span className="text-sm font-semibold text-slate-800">{fmtNum(tvaAmount)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-2.5 print:py-1.5 bg-slate-800 -mx-3 px-3 rounded-lg mt-1 print:mt-0.5">
+                <div className="flex justify-between items-center py-2.5 bg-slate-800 -mx-3 px-3 rounded-lg mt-1">
                   <span className="text-sm font-bold text-white uppercase tracking-wide">Total T.T.C.</span>
                   <span className="text-lg font-bold text-white">{fmtNum(totalTTC)} DH</span>
                 </div>
@@ -470,20 +557,20 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Amount in words ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-4 print:py-2 border-t border-slate-200">
-            <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5 print:mb-1">
+          <div className="amount-section px-4 sm:px-8 print:px-8 py-4 border-t border-slate-200">
+            <p className="text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1.5">
               Arreter la presente facture a la somme de :
             </p>
-            <p className="text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 print:py-1.5 rounded-lg border border-slate-200 italic">
+            <p className="text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 rounded-lg border border-slate-200 italic">
               {totalInWords}
             </p>
           </div>
 
-          </div>{/* end invoice-body */}
+          </div>{/* ── end invoice-body ── */}
 
           {/* ── Footer ── */}
-          <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-3 print:py-2 invoice-footer shrink-0">
-            <div className="flex justify-center items-baseline gap-4 sm:gap-8 mb-1 flex-wrap">
+          <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-3 invoice-footer shrink-0">
+            <div className="flex justify-center items-baseline gap-4 sm:gap-8 print:gap-8 mb-1 flex-wrap">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">Adresse</span>
                 <span className="text-[11px] text-slate-700">{COMPANY.address}</span>
@@ -493,11 +580,11 @@ export default function InvoiceForm({
                 <span className="text-[11px] text-slate-700">{COMPANY.gsm}</span>
               </div>
             </div>
-            <div className="flex justify-center items-baseline gap-3 sm:gap-6 flex-wrap">
-              {([['ICE', COMPANY.ice], ['RC', COMPANY.rc], ['IF', COMPANY.if], ['Patente', COMPANY.patente]] as [string,string][]).map(([label, value]) => (
+            <div className="flex justify-center items-baseline gap-3 sm:gap-6 print:gap-6 flex-wrap">
+              {([['ICE', COMPANY.ice], ['RC', COMPANY.rc], ['IF', COMPANY.if], ['Patente', COMPANY.patente], ['CNSS', COMPANY.CNSS]] as [string,string][]).map(([label, value]) => (
                 <div key={label} className="flex items-baseline gap-1">
                   <span className="text-[11px] font-bold text-slate-700 uppercase tracking-[0.05em]">{label}</span>
-                  <span className="text-[10px] sm:text-[11px] text-slate-700">{value}</span>
+                  <span className="text-[10px] sm:text-[11px] print:text-[11px] text-slate-700">{value}</span>
                 </div>
               ))}
             </div>

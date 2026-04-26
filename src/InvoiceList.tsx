@@ -5,6 +5,7 @@ import {
   Plus, Search, Eye, Edit2, Download, Trash2,
   FileText, ChevronDown, LogOut, Settings,
   Receipt, TrendingUp, CheckCircle, Clock,
+  Mail, MessageCircle,
 } from 'lucide-react';
 import type { Invoice, InvoiceStatus, DocumentType } from './types';
 import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis } from './services/factureService';
@@ -39,16 +40,20 @@ function dateFR(s: string) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onNew:      (docType: DocumentType) => void;
-  onEdit:     (id: string) => void;
-  onView:     (id: string) => void;
-  onPrint:    (id: string) => void;
-  onSettings: () => void;
+  onNew:           (docType: DocumentType) => void;
+  onEdit:          (id: string) => void;
+  onView:          (id: string) => void;
+  onPrint:         (id: string) => void;
+  onSettings:      () => void;
+  onAchats:        () => void;
+  onClients:       () => void;
+  onEmailShare:    (inv: Invoice) => void;
+  onWhatsAppShare: (inv: Invoice) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings }: Props) {
+export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings, onAchats, onClients, onEmailShare, onWhatsAppShare }: Props) {
   const [invoices,     setInvoices]     = useState<Invoice[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [newLoading,   setNewLoading]   = useState(false);
@@ -158,6 +163,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <NewDocMenu onNew={handleNew} loading={newLoading} />
+
             <button
               onClick={onSettings}
               title="Paramètres"
@@ -171,6 +177,26 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
               className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
             >
               <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        {/* Tab nav */}
+        <div className="border-t border-slate-100">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex">
+            <span className="py-2 px-3 text-sm font-semibold text-slate-800 border-b-2 border-slate-800 -mb-px">
+              Factures &amp; Devis
+            </span>
+            <button
+              onClick={onAchats}
+              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
+            >
+              Achats
+            </button>
+            <button
+              onClick={onClients}
+              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
+            >
+              Clients
             </button>
           </div>
         </div>
@@ -296,9 +322,11 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <Btn title="Voir"            onClick={() => onView(inv.id)}>  <Eye      className="w-4 h-4" /></Btn>
-                              <Btn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2    className="w-4 h-4" /></Btn>
-                              <Btn title="Télécharger PDF" onClick={() => onPrint(inv.id)}> <Download className="w-4 h-4" /></Btn>
+                              <Btn title="Voir"            onClick={() => onView(inv.id)}>  <Eye            className="w-4 h-4" /></Btn>
+                              <Btn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2          className="w-4 h-4" /></Btn>
+                              <Btn title="Télécharger PDF" onClick={() => onPrint(inv.id)}> <Download       className="w-4 h-4" /></Btn>
+                              <Btn title="Envoyer par e-mail"   onClick={() => onEmailShare(inv)}>    <Mail           className="w-4 h-4" /></Btn>
+                              <Btn title="Envoyer par WhatsApp" onClick={() => onWhatsAppShare(inv)}> <MessageCircle  className="w-4 h-4" /></Btn>
                               <Btn title="Supprimer"       onClick={() => handleDelete(inv.id)} danger>
                                 <Trash2 className="w-4 h-4" />
                               </Btn>
