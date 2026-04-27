@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft, Settings } from 'lucide-react';
-import { resetFactureCounter, resetDevisCounter } from './services/numberingService';
+import { resetFactureCounter, resetDevisCounter, resetBonLivraisonCounter } from './services/numberingService';
 
 interface Props {
   onBack: () => void;
@@ -18,6 +18,11 @@ export default function SettingsPage({ onBack }: Props) {
   const [devStartFrom, setDevStartFrom] = useState(0);
   const [devLoading,   setDevLoading]   = useState(false);
   const [devResult,    setDevResult]    = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const [blYear,       setBlYear]       = useState(currentYear);
+  const [blStartFrom,  setBlStartFrom]  = useState(0);
+  const [blLoading,    setBlLoading]    = useState(false);
+  const [blResult,     setBlResult]     = useState<{ ok: boolean; msg: string } | null>(null);
 
   async function handleResetFacture() {
     const nextNum = `FAC-${facYear}-${String(facStartFrom + 1).padStart(4, '0')}`;
@@ -58,6 +63,27 @@ export default function SettingsPage({ onBack }: Props) {
       setDevResult({ ok: false, msg: e instanceof Error ? e.message : 'Erreur inconnue' });
     } finally {
       setDevLoading(false);
+    }
+  }
+
+  async function handleResetBL() {
+    const nextNum = `BL-${blYear}-${String(blStartFrom + 1).padStart(4, '0')}`;
+    const ok = window.confirm(
+      `Réinitialiser le compteur BL-${blYear} ?\n\n` +
+      `Le prochain numéro généré sera ${nextNum}.\n\n` +
+      `Les bons de livraison existants ne seront PAS supprimés.\n` +
+      `Si ${nextNum} existe déjà, le système trouvera automatiquement le premier numéro libre.`
+    );
+    if (!ok) return;
+    setBlLoading(true);
+    setBlResult(null);
+    try {
+      await resetBonLivraisonCounter(blYear, blStartFrom);
+      setBlResult({ ok: true, msg: `Compteur réinitialisé. Prochain numéro prévu : ${nextNum}` });
+    } catch (e: unknown) {
+      setBlResult({ ok: false, msg: e instanceof Error ? e.message : 'Erreur inconnue' });
+    } finally {
+      setBlLoading(false);
     }
   }
 
@@ -106,6 +132,19 @@ export default function SettingsPage({ onBack }: Props) {
           onYearChange={setDevYear}
           onStartFromChange={setDevStartFrom}
           onReset={handleResetDevis}
+        />
+
+        {/* ── Bons de Livraison ── */}
+        <CounterSection
+          title="Numérotation des bons de livraison"
+          prefix="BL"
+          year={blYear}
+          startFrom={blStartFrom}
+          loading={blLoading}
+          result={blResult}
+          onYearChange={setBlYear}
+          onStartFromChange={setBlStartFrom}
+          onReset={handleResetBL}
         />
 
       </div>

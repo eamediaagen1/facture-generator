@@ -24,8 +24,9 @@ function toInvoice(row: Record<string, unknown>): Invoice {
     status:        row.status         as InvoiceStatus,
     documentType:  (row.document_type as DocumentType | undefined) ?? 'facture',
     createdAt:     row.created_at     as string,
-    originDevisId: row.origin_devis_id as string | undefined,
-    clientId:      row.client_id       as string | undefined,
+    originDevisId:    row.origin_devis_id    as string | undefined,
+    sourceDocumentId: row.source_document_id as string | undefined,
+    clientId:         row.client_id          as string | undefined,
     stampPos:      ov.stampPos,
     signaturePos:  ov.signaturePos,
     signatureData: ov.signatureData,
@@ -47,10 +48,11 @@ function toRow(inv: Invoice) {
     total_ht:   inv.totalHT,
     tva_amount: inv.tvaAmount,
     total_ttc:  inv.totalTTC,
-    status:          inv.status,
-    document_type:   inv.documentType,
-    origin_devis_id: inv.originDevisId,
-    client_id:       inv.clientId ?? null,
+    status:        inv.status,
+    document_type: inv.documentType,
+    client_id:     inv.clientId ?? null,
+    ...(inv.originDevisId    !== undefined ? { origin_devis_id:    inv.originDevisId }    : {}),
+    ...(inv.sourceDocumentId !== undefined ? { source_document_id: inv.sourceDocumentId } : {}),
     overlays,
   };
 }
@@ -108,6 +110,15 @@ export async function getFacturesByClientId(clientId: string): Promise<Invoice[]
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(toInvoice);
+}
+
+export async function blExistsForSource(sourceId: string): Promise<boolean> {
+  const { count } = await supabase
+    .from('factures')
+    .select('id', { count: 'exact', head: true })
+    .eq('source_document_id', sourceId)
+    .eq('document_type', 'bon_livraison');
+  return (count ?? 0) > 0;
 }
 
 export async function factureExistsForDevis(devisId: string): Promise<boolean> {

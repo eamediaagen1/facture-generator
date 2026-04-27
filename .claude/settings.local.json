@@ -10,7 +10,10 @@
       "Bash(python3 -)",
       "Bash(npm install *)",
       "Bash(node -e \"const s = require\\('/Users/apple/Downloads/invoicer/node_modules/@supabase/supabase-js/dist/main/index.js'\\); console.log\\(Object.keys\\(s\\).filter\\(k => k.includes\\('Function'\\)\\)\\)\")",
-      "Bash(supabase functions *)"
+      "Bash(supabase functions *)",
+      "Bash(awk '{print $NF}')",
+      "Bash(xargs -I {} basename {})",
+      "Bash(npm run *)"
     ]
   }
 }

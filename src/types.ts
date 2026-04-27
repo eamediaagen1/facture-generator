@@ -10,9 +10,10 @@ export interface LineItem {
 export type InvoiceStatus =
   | 'Brouillon'
   | 'Générée' | 'Envoyée' | 'Payée' | 'Annulée'
-  | 'Envoyé'  | 'Accepté' | 'Refusé';
+  | 'Envoyé'  | 'Accepté' | 'Refusé'
+  | 'Livré';
 
-export type DocumentType = 'facture' | 'devis';
+export type DocumentType = 'facture' | 'devis' | 'bon_livraison';
 
 export interface Invoice {
   id: string;
@@ -28,6 +29,7 @@ export interface Invoice {
   documentType: DocumentType;
   createdAt: string;
   originDevisId?: string;
+  sourceDocumentId?: string;
   clientId?: string;
   stampPos?: { x: number; y: number };
   signaturePos?: { x: number; y: number };
@@ -89,7 +91,7 @@ export interface Achat {
 
 export type AppPage =
   | { name: 'list' }
-  | { name: 'new'; invoiceNumber: string; docType: DocumentType }
+  | { name: 'new'; invoiceNumber: string; docType: DocumentType; prefill?: { client: string; clientId?: string; items: LineItem[]; sourceDocumentId?: string } }
   | { name: 'edit'; invoiceId: string }
   | { name: 'view'; invoiceId: string; printOnLoad?: boolean }
   | { name: 'settings' }

@@ -56,3 +56,30 @@ export async function resetDevisCounter(year: number, startFrom: number): Promis
   });
   if (error) throw new Error(`Reset failed: ${error.message}`);
 }
+
+// Atomically gets the next BL-YYYY-NNNN number, skipping any that already exist.
+export async function nextBonLivraisonNumber(): Promise<string> {
+  let number: string;
+  let attempts = 0;
+  do {
+    const { data, error } = await supabase.rpc('next_bon_livraison_number');
+    if (error) throw new Error(`Numbering failed: ${error.message}`);
+    number = data as string;
+    const { count } = await supabase
+      .from('factures')
+      .select('id', { count: 'exact', head: true })
+      .eq('number', number);
+    if ((count ?? 0) === 0) break;
+    if (++attempts > 20) throw new Error('Impossible de trouver un numéro libre — vérifiez le compteur');
+  } while (true);
+  return number;
+}
+
+// Sets the bon de livraison counter for the given year to startFrom.
+export async function resetBonLivraisonCounter(year: number, startFrom: number): Promise<void> {
+  const { error } = await supabase.rpc('reset_bon_livraison_counter', {
+    p_year: year,
+    p_start_from: startFrom,
+  });
+  if (error) throw new Error(`Reset failed: ${error.message}`);
+}

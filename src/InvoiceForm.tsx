@@ -26,8 +26,9 @@ const COMPANY = {
 };
 
 const MIN_TABLE_ROWS = 4;
-const FACTURE_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
-const DEVIS_STATUSES:   InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
+const FACTURE_STATUSES:     InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
+const DEVIS_STATUSES:       InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
+const BL_STATUSES:          InvoiceStatus[] = ['Générée', 'Livré', 'Annulée'];
 
 const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Brouillon: 'bg-slate-100 text-slate-500',
@@ -38,6 +39,7 @@ const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Envoyé:    'bg-blue-50 text-blue-700',
   Accepté:   'bg-emerald-50 text-emerald-700',
   Refusé:    'bg-red-50 text-red-600',
+  Livré:     'bg-teal-50 text-teal-700',
 };
 
 function uid()   { return crypto.randomUUID(); }
@@ -63,6 +65,7 @@ interface Props {
   invoiceNumber?: string;
   invoiceId?: string;
   docType?: DocumentType;
+  prefill?: { client: string; clientId?: string; items: LineItem[]; sourceDocumentId?: string };
   printOnLoad?: boolean;
   pendingShare?: ShareIntent;
   onShareOpened?: () => void;
@@ -71,7 +74,7 @@ interface Props {
 }
 
 export default function InvoiceForm({
-  mode, invoiceNumber: newNumber, invoiceId, docType: docTypeProp, printOnLoad,
+  mode, invoiceNumber: newNumber, invoiceId, docType: docTypeProp, prefill, printOnLoad,
   pendingShare, onShareOpened, onBack, onSaved,
 }: Props) {
   const readOnly    = mode === 'view';
@@ -83,16 +86,17 @@ export default function InvoiceForm({
 
   const [invoiceNum, setInvoiceNum] = useState(newNumber ?? '');
   const [date,       setDate]       = useState(today());
-  const [client,     setClient]     = useState('');
+  const [client,     setClient]     = useState(prefill?.client ?? '');
   const [docType,    setDocType]    = useState<DocumentType>(docTypeProp ?? 'facture');
   const [status,     setStatus]     = useState<InvoiceStatus>('Générée');
-  const [items,      setItems]      = useState<LineItem[]>([
-    { id: uid(), designation: '', quantity: 1, unitPrice: 0 },
-  ]);
+  const [items,      setItems]      = useState<LineItem[]>(
+    prefill?.items ?? [{ id: uid(), designation: '', quantity: 1, unitPrice: 0 }]
+  );
+  const [sourceDocumentId] = useState<string | undefined>(prefill?.sourceDocumentId);
   const tvaRate = 20;
 
   // CRM client link
-  const [clientId,     setClientId]     = useState<string | null>(null);
+  const [clientId,     setClientId]     = useState<string | null>(prefill?.clientId ?? null);
   const [crmClients,   setCrmClients]   = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState('');
   const [showDrop,     setShowDrop]     = useState(false);
@@ -317,24 +321,29 @@ export default function InvoiceForm({
         number:    invoiceNum,
         client, date, items, tvaRate,
         totalHT, tvaAmount, totalTTC,
-        status:       mode === 'new' ? (docType === 'devis' ? 'Envoyé' : 'Générée') : status,
-        documentType: docType,
-        createdAt:    new Date().toISOString(),
-        clientId:     clientId ?? undefined,
-        stampPos:     stampVisible ? stampPos : undefined,
-        signaturePos: sigVisible && sigData ? sigPos : undefined,
-        signatureData: sigVisible && sigData ? sigData : undefined,
+        status:           mode === 'new' ? (docType === 'devis' ? 'Envoyé' : 'Générée') : status,
+        documentType:     docType,
+        createdAt:        new Date().toISOString(),
+        clientId:         clientId ?? undefined,
+        sourceDocumentId: sourceDocumentId,
+        stampPos:         stampVisible ? stampPos : undefined,
+        signaturePos:     sigVisible && sigData ? sigPos : undefined,
+        signatureData:    sigVisible && sigData ? sigData : undefined,
       };
       await upsertFacture(invoice);
       onSaved();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
+      const msg = e instanceof Error
+        ? e.message
+        : (e as { message?: string })?.message ?? 'Erreur de sauvegarde';
+      setError(msg);
     } finally {
       setSaving(false);
     }
   }
 
   function handleSaveClick() {
+    if (docType === 'bon_livraison') { handleSave(); return; }
     const linkedClient = clientId ? crmClients.find(c => c.id === clientId) : null;
     setConfirmEmail(linkedClient?.email ?? '');
     setShowEmailConfirm(true);
@@ -359,11 +368,11 @@ export default function InvoiceForm({
   }
 
   const titleLabel =
-    mode === 'new'  ? (docType === 'devis' ? 'Nouveau Devis'  : 'Nouvelle Facture') :
-    mode === 'edit' ? (docType === 'devis' ? 'Modifier Devis'  : 'Modifier Facture') :
-                      (docType === 'devis' ? 'Aperçu Devis'    : 'Aperçu Facture');
+    mode === 'new'  ? (docType === 'devis' ? 'Nouveau Devis'  : docType === 'bon_livraison' ? 'Nouveau BL'     : 'Nouvelle Facture') :
+    mode === 'edit' ? (docType === 'devis' ? 'Modifier Devis'  : docType === 'bon_livraison' ? 'Modifier BL'    : 'Modifier Facture') :
+                      (docType === 'devis' ? 'Aperçu Devis'    : docType === 'bon_livraison' ? 'Aperçu BL'      : 'Aperçu Facture');
 
-  const savedStatuses = docType === 'devis' ? DEVIS_STATUSES : FACTURE_STATUSES;
+  const savedStatuses = docType === 'devis' ? DEVIS_STATUSES : docType === 'bon_livraison' ? BL_STATUSES : FACTURE_STATUSES;
 
   // Status control shared between mobile and desktop toolbars
   const statusControl = (
@@ -552,7 +561,7 @@ export default function InvoiceForm({
               </div>
               <div className="sm:text-right print:text-right">
                 <div className="inline-block bg-slate-800 rounded-lg px-3 sm:px-4 py-2">
-                  <p className="text-xs text-slate-300 uppercase tracking-wider">{docType === 'devis' ? 'Devis N°' : 'Facture N°'}</p>
+                  <p className="text-xs text-slate-300 uppercase tracking-wider">{docType === 'bon_livraison' ? 'BON DE LIVRAISON N°' : docType === 'devis' ? 'Devis N°' : 'Facture N°'}</p>
                   <p className="text-white font-bold text-base sm:text-lg tracking-wide">{invoiceNum}</p>
                 </div>
               </div>
@@ -749,7 +758,6 @@ export default function InvoiceForm({
           {/* ── Totals ── */}
           <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 bg-slate-50/50 border-t border-slate-200">
             <div className="flex justify-end">
-              {/* Full-width on mobile, fixed 288px on desktop/print */}
               <div className="w-full sm:w-72 print:w-72">
                 <div className="flex justify-between items-center py-2 border-b border-slate-200">
                   <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-[0.04em]">TOTAL H.T.</span>

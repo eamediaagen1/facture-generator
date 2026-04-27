@@ -1,14 +1,15 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
+import ExportModal from './ExportModal';
 import {
   Plus, Search, Eye, Edit2, Download, Trash2,
   FileText, ChevronDown, LogOut, Settings,
   Receipt, TrendingUp, CheckCircle, Clock,
-  Mail, MessageCircle,
+  Truck,
 } from 'lucide-react';
 import type { Invoice, InvoiceStatus, DocumentType } from './types';
-import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis } from './services/factureService';
+import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis, blExistsForSource } from './services/factureService';
 import { nextInvoiceNumber } from './services/numberingService';
 import { signOut } from './services/authService';
 
@@ -23,11 +24,13 @@ const STATUS_STYLES: Record<InvoiceStatus, string> = {
   Envoyé:    'bg-blue-50 text-blue-700',
   Accepté:   'bg-emerald-50 text-emerald-700',
   Refusé:    'bg-red-50 text-red-600',
+  Livré:     'bg-teal-50 text-teal-700',
 };
 
 const FACTURE_STATUSES: InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
 const DEVIS_STATUSES:   InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
-const ALL_STATUSES:     InvoiceStatus[] = [...FACTURE_STATUSES, ...DEVIS_STATUSES];
+const BL_STATUSES:      InvoiceStatus[] = ['Générée', 'Livré', 'Annulée'];
+const ALL_STATUSES:     InvoiceStatus[] = [...FACTURE_STATUSES, ...DEVIS_STATUSES, 'Livré'];
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -40,27 +43,30 @@ function dateFR(s: string) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onNew:           (docType: DocumentType) => void;
-  onEdit:          (id: string) => void;
-  onView:          (id: string) => void;
-  onPrint:         (id: string) => void;
-  onSettings:      () => void;
-  onAchats:        () => void;
-  onClients:       () => void;
-  onEmailShare:    (inv: Invoice) => void;
-  onWhatsAppShare: (inv: Invoice) => void;
+  onNew:        (docType: DocumentType) => Promise<void>;
+  onEdit:       (id: string) => void;
+  onView:       (id: string) => void;
+  onPrint:      (id: string) => void;
+  onSettings:   () => void;
+  onAchats:     () => void;
+  onClients:    () => void;
+  onCreateBL:   (inv: Invoice) => Promise<void>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings, onAchats, onClients, onEmailShare, onWhatsAppShare }: Props) {
+export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings, onAchats, onClients, onCreateBL }: Props) {
   const [invoices,     setInvoices]     = useState<Invoice[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [newLoading,   setNewLoading]   = useState(false);
+  const [newError,     setNewError]     = useState('');
   const [fetchError,   setFetchError]   = useState('');
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | ''>('');
   const [yearFilter,   setYearFilter]   = useState('');
+  const [typeFilter,   setTypeFilter]   = useState<DocumentType | ''>('');
+  const [trimFilter,   setTrimFilter]   = useState<'' | 'T1' | 'T2' | 'T3' | 'T4'>('');
+  const [showExport,   setShowExport]   = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -81,31 +87,67 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
     return Array.from(set).sort().reverse();
   }, [invoices]);
 
+  function getTrim(dateStr: string): string {
+    const m = parseInt(dateStr.slice(5, 7), 10);
+    if (m <= 3) return 'T1';
+    if (m <= 6) return 'T2';
+    if (m <= 9) return 'T3';
+    return 'T4';
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return invoices.filter(inv => {
       if (statusFilter && inv.status !== statusFilter) return false;
+      if (typeFilter   && inv.documentType !== typeFilter) return false;
       if (yearFilter   && !inv.date.startsWith(yearFilter)) return false;
+      if (trimFilter   && getTrim(inv.date) !== trimFilter) return false;
       if (q && !inv.client.toLowerCase().includes(q) && !inv.number.toLowerCase().includes(q))
         return false;
       return true;
     });
-  }, [invoices, search, statusFilter, yearFilter]);
+  }, [invoices, search, statusFilter, typeFilter, yearFilter, trimFilter]);
 
   const metrics = useMemo(() => {
-    const active = invoices.filter(i => i.status !== 'Annulée');
+    const factures = invoices.filter(i => i.documentType === 'facture');
+    const active   = factures.filter(i => i.status !== 'Annulée');
     return {
-      total:     invoices.length,
+      total:     factures.length,
       totalTTC:  active.reduce((s, i) => s + i.totalTTC, 0),
-      payees:    invoices.filter(i => i.status === 'Payée').length,
-      enAttente: invoices.filter(i => i.status === 'Générée' || i.status === 'Envoyée').length,
+      payees:    factures.filter(i => i.status === 'Payée').length,
+      enAttente: factures.filter(i => i.status === 'Générée' || i.status === 'Envoyée').length,
     };
   }, [invoices]);
 
+  const [blCreating, setBlCreating] = useState(false);
+
+  async function handleCreateBL(inv: Invoice) {
+    setBlCreating(true);
+    setNewError('');
+    try {
+      const exists = await blExistsForSource(inv.id);
+      if (exists) {
+        const ok = window.confirm('Un bon de livraison existe déjà pour ce document. Créer un autre quand même ?');
+        if (!ok) { setBlCreating(false); return; }
+      }
+      await onCreateBL(inv);
+    } catch (e: unknown) {
+      setNewError(e instanceof Error ? e.message : 'Erreur lors de la création du BL');
+    } finally {
+      setBlCreating(false);
+    }
+  }
+
   async function handleNew(docType: DocumentType) {
     setNewLoading(true);
-    await onNew(docType);
-    setNewLoading(false);
+    setNewError('');
+    try {
+      await onNew(docType);
+    } catch (e: unknown) {
+      setNewError(e instanceof Error ? e.message : 'Erreur lors de la création');
+    } finally {
+      setNewLoading(false);
+    }
   }
 
   async function handleDelete(id: string) {
@@ -165,6 +207,14 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
             <NewDocMenu onNew={handleNew} loading={newLoading} />
 
             <button
+              onClick={() => setShowExport(true)}
+              title="Exporter"
+              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={onSettings}
               title="Paramètres"
               className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
@@ -203,6 +253,12 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
       </div>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+
+        {newError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+            {newError}
+          </div>
+        )}
 
         {/* ── Metrics ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -243,7 +299,17 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
               className="w-full pl-9 pr-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-all"
             />
           </div>
-          <div className="flex gap-3 sm:gap-2">
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value as DocumentType | '')}
+              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <option value="">Tous les types</option>
+              <option value="facture">Facture</option>
+              <option value="devis">Devis</option>
+              <option value="bon_livraison">Bon de Livraison</option>
+            </select>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value as InvoiceStatus | '')}
@@ -259,6 +325,17 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
             >
               <option value="">Toutes les années</option>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <select
+              value={trimFilter}
+              onChange={e => setTrimFilter(e.target.value as '' | 'T1' | 'T2' | 'T3' | 'T4')}
+              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <option value="">Tous les trimestres</option>
+              <option value="T1">T1 (Jan–Mar)</option>
+              <option value="T2">T2 (Avr–Juin)</option>
+              <option value="T3">T3 (Jul–Sep)</option>
+              <option value="T4">T4 (Oct–Déc)</option>
             </select>
           </div>
         </div>
@@ -301,7 +378,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
                     {filtered.map(inv => {
                       const clientLine = inv.client.split('\n')[0].trim();
                       return (
-                        <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                        <tr key={inv.id} className={`hover:bg-slate-50/60 transition-colors${inv.documentType === 'bon_livraison' ? ' border-l-4 border-teal-400' : ''}`}>
                           <td className="px-5 py-3.5">
                             <span className="font-mono text-sm font-semibold text-slate-800 tracking-wide">{inv.number}</span>
                           </td>
@@ -322,12 +399,15 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <Btn title="Voir"            onClick={() => onView(inv.id)}>  <Eye            className="w-4 h-4" /></Btn>
-                              <Btn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2          className="w-4 h-4" /></Btn>
-                              <Btn title="Télécharger PDF" onClick={() => onPrint(inv.id)}> <Download       className="w-4 h-4" /></Btn>
-                              <Btn title="Envoyer par e-mail"   onClick={() => onEmailShare(inv)}>    <Mail           className="w-4 h-4" /></Btn>
-                              <Btn title="Envoyer par WhatsApp" onClick={() => onWhatsAppShare(inv)}> <MessageCircle  className="w-4 h-4" /></Btn>
-                              <Btn title="Supprimer"       onClick={() => handleDelete(inv.id)} danger>
+                              <Btn title="Voir"            onClick={() => onView(inv.id)}>  <Eye      className="w-4 h-4" /></Btn>
+                              <Btn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2    className="w-4 h-4" /></Btn>
+                              <Btn title="Télécharger PDF" onClick={() => onPrint(inv.id)}> <Download className="w-4 h-4" /></Btn>
+                              {inv.documentType !== 'bon_livraison' && (
+                                <Btn title="Créer BL" onClick={() => handleCreateBL(inv)} disabled={blCreating}>
+                                  <Truck className="w-4 h-4" />
+                                </Btn>
+                              )}
+                              <Btn title="Supprimer" onClick={() => handleDelete(inv.id)} danger>
                                 <Trash2 className="w-4 h-4" />
                               </Btn>
                             </div>
@@ -350,8 +430,8 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
                     onPrint={() => onPrint(inv.id)}
                     onDelete={() => handleDelete(inv.id)}
                     onStatusChange={s => handleStatusChange(inv.id, s)}
-                    onEmailShare={() => onEmailShare(inv)}
-                    onWhatsAppShare={() => onWhatsAppShare(inv)}
+                    onCreateBL={() => handleCreateBL(inv)}
+                    blCreating={blCreating}
                   />
                 ))}
               </div>
@@ -366,6 +446,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
           </p>
         )}
       </div>
+      {showExport && <ExportModal onClose={() => setShowExport(false)} />}
     </div>
   );
 }
@@ -373,7 +454,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
 // ── Mobile invoice card ───────────────────────────────────────────────────────
 
 function MobileInvoiceCard({
-  inv, onView, onEdit, onPrint, onDelete, onStatusChange, onEmailShare, onWhatsAppShare,
+  inv, onView, onEdit, onPrint, onDelete, onStatusChange, onCreateBL, blCreating,
 }: {
   inv: Invoice;
   onView: () => void;
@@ -381,12 +462,12 @@ function MobileInvoiceCard({
   onPrint: () => void;
   onDelete: () => void;
   onStatusChange: (s: InvoiceStatus) => void;
-  onEmailShare: () => void;
-  onWhatsAppShare: () => void;
+  onCreateBL: () => void;
+  blCreating: boolean;
 }) {
   const clientLine = inv.client.split('\n')[0].trim();
   return (
-    <div className="px-4 py-4 flex flex-col gap-3">
+    <div className={`px-4 py-4 flex flex-col gap-3${inv.documentType === 'bon_livraison' ? ' border-l-4 border-teal-400' : ''}`}>
       {/* Row 1: number + status */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -402,15 +483,20 @@ function MobileInvoiceCard({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs text-slate-400">{dateFR(inv.date)}</p>
-          <p className="text-base font-bold text-slate-800 mt-0.5">{fmt(inv.totalTTC)} DH</p>
+          {inv.documentType !== 'bon_livraison' && (
+            <p className="text-base font-bold text-slate-800 mt-0.5">{fmt(inv.totalTTC)} DH</p>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          <Btn title="Voir"                 onClick={onView}>          <Eye           className="w-5 h-5" /></Btn>
-          <Btn title="Modifier"             onClick={onEdit}>          <Edit2         className="w-5 h-5" /></Btn>
-          <Btn title="Télécharger PDF"      onClick={onPrint}>         <Download      className="w-5 h-5" /></Btn>
-          <Btn title="Envoyer par e-mail"   onClick={onEmailShare}>    <Mail          className="w-5 h-5" /></Btn>
-          <Btn title="Envoyer par WhatsApp" onClick={onWhatsAppShare}> <MessageCircle className="w-5 h-5" /></Btn>
-          <Btn title="Supprimer"            onClick={onDelete} danger>  <Trash2        className="w-5 h-5" /></Btn>
+          <Btn title="Voir"            onClick={onView}>  <Eye      className="w-5 h-5" /></Btn>
+          <Btn title="Modifier"        onClick={onEdit}>  <Edit2    className="w-5 h-5" /></Btn>
+          <Btn title="Télécharger PDF" onClick={onPrint}> <Download className="w-5 h-5" /></Btn>
+          {inv.documentType !== 'bon_livraison' && (
+            <Btn title="Créer BL" onClick={onCreateBL} disabled={blCreating}>
+              <Truck className="w-5 h-5" />
+            </Btn>
+          )}
+          <Btn title="Supprimer" onClick={onDelete} danger><Trash2 className="w-5 h-5" /></Btn>
         </div>
       </div>
     </div>
@@ -483,7 +569,7 @@ function StatusBadge({
             className="fixed z-50 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 min-w-[150px]"
             style={{ top: pos.top, left: pos.left }}
           >
-            {(documentType === 'devis' ? DEVIS_STATUSES : FACTURE_STATUSES).map(s => (
+            {(documentType === 'devis' ? DEVIS_STATUSES : documentType === 'bon_livraison' ? BL_STATUSES : FACTURE_STATUSES).map(s => (
               <button
                 key={s}
                 onClick={() => { onChange(s); setOpen(false); }}
@@ -505,18 +591,20 @@ function StatusBadge({
 // ── Action button ─────────────────────────────────────────────────────────────
 
 function Btn({
-  title, onClick, danger, children,
+  title, onClick, danger, disabled, children,
 }: {
   title: string;
   onClick: () => void;
   danger?: boolean;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       title={title}
       onClick={onClick}
-      className={`p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-lg transition-all ${
+      disabled={disabled}
+      className={`p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-lg transition-all disabled:opacity-40 disabled:pointer-events-none ${
         danger
           ? 'text-slate-300 hover:text-red-500 hover:bg-red-50'
           : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
@@ -569,6 +657,12 @@ function NewDocMenu({ onNew, loading }: { onNew: (d: DocumentType) => void; load
             className="w-full text-left px-4 py-2.5 sm:py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors min-h-[44px] sm:min-h-0"
           >
             Devis
+          </button>
+          <button
+            onClick={() => { onNew('bon_livraison'); setOpen(false); }}
+            className="w-full text-left px-4 py-2.5 sm:py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors min-h-[44px] sm:min-h-0"
+          >
+            Bon de Livraison
           </button>
         </div>
       )}

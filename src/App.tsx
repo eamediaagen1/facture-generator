@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { AppPage, Invoice } from './types';
 import { supabase } from './services/supabaseClient';
-import { nextInvoiceNumber, nextDevisNumber } from './services/numberingService';
+import { nextInvoiceNumber, nextDevisNumber, nextBonLivraisonNumber } from './services/numberingService';
 import { getClient } from './services/clientService';
 import LoginPage from './LoginPage';
 import InvoiceList from './InvoiceList';
@@ -182,17 +182,26 @@ export default function App() {
         onNew={async (docType) => {
           const number = docType === 'devis'
             ? await nextDevisNumber()
+            : docType === 'bon_livraison'
+            ? await nextBonLivraisonNumber()
             : await nextInvoiceNumber();
           setPage({ name: 'new', invoiceNumber: number, docType });
         }}
-        onEdit={id       => setPage({ name: 'edit', invoiceId: id })}
-        onView={id       => setPage({ name: 'view', invoiceId: id })}
-        onPrint={id      => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
+        onCreateBL={async (inv) => {
+          const number = await nextBonLivraisonNumber();
+          setPage({
+            name: 'new',
+            invoiceNumber: number,
+            docType: 'bon_livraison',
+            prefill: { client: inv.client, clientId: inv.clientId, items: inv.items, sourceDocumentId: inv.id },
+          });
+        }}
+        onEdit={id  => setPage({ name: 'edit', invoiceId: id })}
+        onView={id  => setPage({ name: 'view', invoiceId: id })}
+        onPrint={id => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
         onSettings={() => setPage({ name: 'settings' })}
         onAchats={() => setPage({ name: 'achats' })}
         onClients={goClients}
-        onEmailShare={handleEmailShare}
-        onWhatsAppShare={handleWhatsAppShare}
       />
     );
   }
@@ -203,6 +212,7 @@ export default function App() {
         mode="new"
         invoiceNumber={page.invoiceNumber}
         docType={page.docType}
+        prefill={page.prefill}
         onBack={goList}
         onSaved={goList}
       />

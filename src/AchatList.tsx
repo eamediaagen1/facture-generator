@@ -33,6 +33,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
   const [search,      setSearch]      = useState('');
   const [statusFilter, setStatusFilter] = useState<AchatPaymentStatus | ''>('');
   const [yearFilter,  setYearFilter]  = useState('');
+  const [trimFilter,  setTrimFilter]  = useState<'' | 'T1' | 'T2' | 'T3' | 'T4'>('');
   const [showImport,  setShowImport]  = useState(false);
   const [showAIModal,  setShowAIModal]  = useState(false);
   const [inlineError,  setInlineError]  = useState('');
@@ -59,11 +60,20 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
     return Array.from(set).sort().reverse();
   }, [achats]);
 
+  function getTrim(dateStr: string): string {
+    const m = parseInt(dateStr?.slice(5, 7) ?? '0', 10);
+    if (m <= 3) return 'T1';
+    if (m <= 6) return 'T2';
+    if (m <= 9) return 'T3';
+    return 'T4';
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const result = achats.filter(a => {
       if (statusFilter && a.payment_status !== statusFilter) return false;
       if (yearFilter   && !a.invoice_date?.startsWith(yearFilter)) return false;
+      if (trimFilter   && a.invoice_date && getTrim(a.invoice_date) !== trimFilter) return false;
       if (q &&
         !a.supplier_name.toLowerCase().includes(q) &&
         !a.supplier_invoice_number.toLowerCase().includes(q) &&
@@ -81,7 +91,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
       case 'amount_asc':  s.sort((a, b) => a.amount_ttc - b.amount_ttc);                          break;
     }
     return s;
-  }, [achats, search, statusFilter, yearFilter, sortBy]);
+  }, [achats, search, statusFilter, yearFilter, trimFilter, sortBy]);
 
   const metrics = useMemo(() => ({
     total:    achats.length,
@@ -249,6 +259,17 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
             >
               <option value="">Toutes les années</option>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <select
+              value={trimFilter}
+              onChange={e => setTrimFilter(e.target.value as '' | 'T1' | 'T2' | 'T3' | 'T4')}
+              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <option value="">Tous les trimestres</option>
+              <option value="T1">T1 (Jan–Mar)</option>
+              <option value="T2">T2 (Avr–Juin)</option>
+              <option value="T3">T3 (Jul–Sep)</option>
+              <option value="T4">T4 (Oct–Déc)</option>
             </select>
             <select
               value={sortBy}
