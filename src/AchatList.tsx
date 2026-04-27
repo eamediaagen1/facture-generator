@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import {
   Plus, Search, Eye, Edit2, Trash2, ExternalLink, FileText, LogOut,
-  ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload,
+  ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload, Sparkles,
 } from 'lucide-react';
 import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
-import { getAchats, deleteAchat, deleteAchatFile } from './services/achatService';
+import { getAchats, deleteAchat, deleteAchatFile, patchAchat } from './services/achatService';
 import { signOut } from './services/authService';
 import AchatImportModal from './AchatImportModal';
+import AchatAIModal from './AchatAIModal';
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,6 +34,11 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
   const [statusFilter, setStatusFilter] = useState<AchatPaymentStatus | ''>('');
   const [yearFilter,  setYearFilter]  = useState('');
   const [showImport,  setShowImport]  = useState(false);
+  const [showAIModal,  setShowAIModal]  = useState(false);
+  const [inlineError,  setInlineError]  = useState('');
+
+  type SortKey = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'amount_desc' | 'amount_asc';
+  const [sortBy, setSortBy] = useState<SortKey>('date_desc');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,7 +61,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return achats.filter(a => {
+    const result = achats.filter(a => {
       if (statusFilter && a.payment_status !== statusFilter) return false;
       if (yearFilter   && !a.invoice_date?.startsWith(yearFilter)) return false;
       if (q &&
@@ -65,7 +71,17 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
       ) return false;
       return true;
     });
-  }, [achats, search, statusFilter, yearFilter]);
+    const s = [...result];
+    switch (sortBy) {
+      case 'name_asc':    s.sort((a, b) => a.supplier_name.localeCompare(b.supplier_name, 'fr')); break;
+      case 'name_desc':   s.sort((a, b) => b.supplier_name.localeCompare(a.supplier_name, 'fr')); break;
+      case 'date_asc':    s.sort((a, b) => a.invoice_date.localeCompare(b.invoice_date));         break;
+      case 'date_desc':   s.sort((a, b) => b.invoice_date.localeCompare(a.invoice_date));         break;
+      case 'amount_desc': s.sort((a, b) => b.amount_ttc - a.amount_ttc);                          break;
+      case 'amount_asc':  s.sort((a, b) => a.amount_ttc - b.amount_ttc);                          break;
+    }
+    return s;
+  }, [achats, search, statusFilter, yearFilter, sortBy]);
 
   const metrics = useMemo(() => ({
     total:    achats.length,
@@ -75,6 +91,28 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
       .filter(a => a.payment_status === 'Non payé')
       .reduce((s, a) => s + a.amount_ttc, 0),
   }), [achats]);
+
+  async function handleStatusChange(a: Achat, status: AchatPaymentStatus) {
+    setAchats(prev => prev.map(x => x.id === a.id ? { ...x, payment_status: status } : x));
+    try {
+      await patchAchat(a.id, { payment_status: status });
+    } catch (e: unknown) {
+      setAchats(prev => prev.map(x => x.id === a.id ? { ...x, payment_status: a.payment_status } : x));
+      setInlineError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
+      setTimeout(() => setInlineError(''), 4000);
+    }
+  }
+
+  async function handleMethodChange(a: Achat, method: PaymentMethod) {
+    setAchats(prev => prev.map(x => x.id === a.id ? { ...x, payment_method: method } : x));
+    try {
+      await patchAchat(a.id, { payment_method: method });
+    } catch (e: unknown) {
+      setAchats(prev => prev.map(x => x.id === a.id ? { ...x, payment_method: a.payment_method } : x));
+      setInlineError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
+      setTimeout(() => setInlineError(''), 4000);
+    }
+  }
 
   async function handleDelete(a: Achat) {
     if (!window.confirm('Supprimer cet achat définitivement ?')) return;
@@ -88,7 +126,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
 
       {/* ── Top bar ── */}
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <FileText className="w-5 h-5 text-slate-700 shrink-0" />
             <span className="font-semibold text-slate-800 text-sm tracking-wide uppercase truncate">
@@ -96,6 +134,13 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowAIModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-medium rounded-lg transition-all"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Importer avec IA</span>
+            </button>
             <button
               onClick={() => setShowImport(true)}
               className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-all"
@@ -121,7 +166,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
         </div>
         {/* Tab nav */}
         <div className="border-t border-slate-100">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex">
             <button
               onClick={onFactures}
               className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
@@ -141,7 +186,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
 
         {/* ── Metrics ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -171,6 +216,11 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
         </div>
 
         {/* ── Filters ── */}
+        {inlineError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+            {inlineError}
+          </div>
+        )}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -182,7 +232,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
               className="w-full pl-9 pr-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-all"
             />
           </div>
-          <div className="flex gap-3 sm:gap-2">
+          <div className="flex flex-wrap gap-2">
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value as AchatPaymentStatus | '')}
@@ -199,6 +249,18 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
             >
               <option value="">Toutes les années</option>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortKey)}
+              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              <option value="date_desc">Date (récent → ancien)</option>
+              <option value="date_asc">Date (ancien → récent)</option>
+              <option value="name_asc">Fournisseur A → Z</option>
+              <option value="name_desc">Fournisseur Z → A</option>
+              <option value="amount_desc">Montant (haut → bas)</option>
+              <option value="amount_asc">Montant (bas → haut)</option>
             </select>
           </div>
         </div>
@@ -243,7 +305,15 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
                     {filtered.map(a => (
                       <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-5 py-3.5">
-                          <span className="text-sm font-medium text-slate-800">{a.supplier_name || '—'}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-800">{a.supplier_name || '—'}</span>
+                            {a.status === 'needs_review' && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                                <Sparkles className="w-3 h-3" />
+                                IA
+                              </span>
+                            )}
+                          </div>
                           {a.description && (
                             <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{a.description}</p>
                           )}
@@ -261,16 +331,32 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
                           <span className="text-sm font-semibold text-slate-800">{fmt(a.amount_ttc)} DH</span>
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                            a.payment_status === 'Payé'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}>
-                            {a.payment_status}
-                          </span>
+                          <select
+                            value={a.payment_status}
+                            onChange={e => handleStatusChange(a, e.target.value as AchatPaymentStatus)}
+                            onClick={e => e.stopPropagation()}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${
+                              a.payment_status === 'Payé'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            <option value="Non payé">Non payé</option>
+                            <option value="Payé">Payé</option>
+                          </select>
                         </td>
                         <td className="px-4 py-3.5">
-                          <PaymentMethodBadge value={a.payment_method} />
+                          <select
+                            value={a.payment_method ?? 'Virement'}
+                            onChange={e => handleMethodChange(a, e.target.value as PaymentMethod)}
+                            onClick={e => e.stopPropagation()}
+                            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${PM_STYLES[a.payment_method ?? 'Virement'] ?? PM_STYLES['Virement']}`}
+                          >
+                            <option value="Virement">Virement</option>
+                            <option value="Espèce">Espèce</option>
+                            <option value="Chèque">Chèque</option>
+                            <option value="Carte">Carte</option>
+                          </select>
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center justify-end gap-0.5">
@@ -305,6 +391,8 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
                     onView={() => onView(a.id)}
                     onEdit={() => onEdit(a.id)}
                     onDelete={() => handleDelete(a)}
+                    onStatusChange={status => handleStatusChange(a, status)}
+                    onMethodChange={method => handleMethodChange(a, method)}
                   />
                 ))}
               </div>
@@ -327,6 +415,13 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
           onImported={() => { setShowImport(false); load(); }}
         />
       )}
+
+      {showAIModal && (
+        <AchatAIModal
+          onClose={() => setShowAIModal(false)}
+          onDone={() => { setShowAIModal(false); load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -334,29 +429,55 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
 // ── Mobile card ───────────────────────────────────────────────────────────────
 
 function MobileAchatCard({
-  achat, onView, onEdit, onDelete,
+  achat, onView, onEdit, onDelete, onStatusChange, onMethodChange,
 }: {
-  achat: Achat;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  achat:          Achat;
+  onView:         () => void;
+  onEdit:         () => void;
+  onDelete:       () => void;
+  onStatusChange: (s: AchatPaymentStatus) => void;
+  onMethodChange: (m: PaymentMethod) => void;
 }) {
   return (
     <div className="px-4 py-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-sm font-semibold text-slate-800 block">{achat.supplier_name || '—'}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">{achat.supplier_name || '—'}</span>
+            {achat.status === 'needs_review' && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200 shrink-0">
+                <Sparkles className="w-3 h-3" />
+                IA
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">{achat.category || 'Sans catégorie'}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-            achat.payment_status === 'Payé'
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-amber-50 text-amber-700'
-          }`}>
-            {achat.payment_status}
-          </span>
-          <PaymentMethodBadge value={achat.payment_method} />
+          <select
+            value={achat.payment_status}
+            onChange={e => onStatusChange(e.target.value as AchatPaymentStatus)}
+            onClick={e => e.stopPropagation()}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${
+              achat.payment_status === 'Payé'
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}
+          >
+            <option value="Non payé">Non payé</option>
+            <option value="Payé">Payé</option>
+          </select>
+          <select
+            value={achat.payment_method ?? 'Virement'}
+            onChange={e => onMethodChange(e.target.value as PaymentMethod)}
+            onClick={e => e.stopPropagation()}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${PM_STYLES[achat.payment_method ?? 'Virement'] ?? PM_STYLES['Virement']}`}
+          >
+            <option value="Virement">Virement</option>
+            <option value="Espèce">Espèce</option>
+            <option value="Chèque">Chèque</option>
+            <option value="Carte">Carte</option>
+          </select>
         </div>
       </div>
       <div className="flex items-center justify-between gap-3">
@@ -391,6 +512,7 @@ const PM_STYLES: Record<PaymentMethod, string> = {
   'Virement': 'bg-blue-50 text-blue-700',
   'Espèce':   'bg-emerald-50 text-emerald-700',
   'Chèque':   'bg-violet-50 text-violet-700',
+  'Carte':    'bg-pink-50 text-pink-700',
 };
 
 function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {

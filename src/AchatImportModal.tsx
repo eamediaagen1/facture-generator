@@ -17,6 +17,7 @@ const PM_STYLES: Record<PaymentMethod, string> = {
   'Virement': 'bg-blue-50 text-blue-700',
   'Espèce':   'bg-emerald-50 text-emerald-700',
   'Chèque':   'bg-violet-50 text-violet-700',
+  'Carte':    'bg-pink-50 text-pink-700',
 };
 
 type Stage = 'idle' | 'parsing' | 'preview' | 'importing' | 'done';

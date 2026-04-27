@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { ArrowLeft, Save, Upload, X, ExternalLink, LogOut } from 'lucide-react';
-import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
+import { ArrowLeft, Save, Upload, X, ExternalLink, LogOut, Sparkles, CheckCircle } from 'lucide-react';
+import type { Achat, AchatPaymentStatus, AchatStatus, PaymentMethod } from './types';
 import {
   getAchat, upsertAchat, validateFile, uploadAchatFile, deleteAchatFile,
 } from './services/achatService';
@@ -53,6 +53,8 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
   const [paymentMethod,          setPaymentMethod]          = useState<PaymentMethod>('Virement');
   const [notes,                  setNotes]                  = useState('');
   const [createdAt,              setCreatedAt]              = useState('');
+  const [achatStatus,            setAchatStatus]            = useState<AchatStatus>('validated');
+  const [aiConfidence,           setAiConfidence]           = useState<number | null>(null);
 
   // File state
   const [existingFileUrl,  setExistingFileUrl]  = useState<string | null>(null);
@@ -81,6 +83,8 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         setExistingFileUrl(a.file_url);
         setExistingFilePath(a.file_path);
         setCreatedAt(a.created_at);
+        setAchatStatus(a.status ?? 'validated');
+        setAiConfidence(a.ai_confidence ?? null);
       }
       setLoading(false);
     });
@@ -135,10 +139,45 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         notes:                   notes.trim(),
         file_url:                fileUrl,
         file_path:               filePath,
+        status:                  achatStatus,
+        ai_confidence:           aiConfidence ?? undefined,
         created_at:              createdAt || new Date().toISOString(),
         updated_at:              new Date().toISOString(),
       };
       await upsertAchat(achat);
+      onSaved();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleValidate() {
+    setSaving(true);
+    setError('');
+    try {
+      await upsertAchat({
+        id:                      achatId ?? crypto.randomUUID(),
+        supplier_name:           supplierName.trim(),
+        invoice_date:            invoiceDate,
+        supplier_invoice_number: supplierInvoiceNumber.trim(),
+        description:             description.trim(),
+        category:                category.trim(),
+        amount_ht:               Number(amountHT) || 0,
+        tva:                     Number(tva) || 0,
+        amount_ttc:              amountTTC,
+        payment_status:          paymentStatus,
+        payment_method:          paymentMethod,
+        notes:                   notes.trim(),
+        file_url:                existingFileUrl,
+        file_path:               existingFilePath,
+        status:                  'validated',
+        ai_confidence:           aiConfidence ?? undefined,
+        created_at:              createdAt || new Date().toISOString(),
+        updated_at:              new Date().toISOString(),
+      });
+      setAchatStatus('validated');
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erreur de sauvegarde');
@@ -205,6 +244,28 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
 
       {/* ── Form ── */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+
+        {achatStatus === 'needs_review' && (
+          <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-4 h-4 text-violet-600 shrink-0" />
+              <span className="text-sm font-medium text-violet-700">Brouillon IA — vérifiez les champs avant de valider</span>
+              {aiConfidence !== null && (
+                <span className="text-xs text-violet-500 shrink-0">
+                  Confiance : {Math.round(aiConfidence * 100)}%
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleValidate}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white rounded-lg font-medium transition-colors shrink-0"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Valider
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
@@ -375,6 +436,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
                   <option value="Virement">Virement</option>
                   <option value="Espèce">Espèce</option>
                   <option value="Chèque">Chèque</option>
+                  <option value="Carte">Carte</option>
                 </select>
             }
           </Field>
@@ -502,6 +564,7 @@ function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {
     'Virement': 'bg-blue-50 text-blue-700',
     'Espèce':   'bg-emerald-50 text-emerald-700',
     'Chèque':   'bg-violet-50 text-violet-700',
+    'Carte':    'bg-pink-50 text-pink-700',
   };
   const label = value ?? 'Virement';
   return (

@@ -49,6 +49,14 @@ export async function bulkInsertAchats(rows: Omit<Achat, 'id' | 'created_at' | '
   return insert.length;
 }
 
+export async function patchAchat(id: string, patch: Partial<Achat>): Promise<void> {
+  const { error } = await supabase
+    .from('achats')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 export async function deleteAchat(id: string): Promise<void> {
   const { error } = await supabase.from('achats').delete().eq('id', id);
   if (error) throw error;

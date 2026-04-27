@@ -61,10 +61,12 @@ export interface ClientDocument {
 }
 
 export type AchatPaymentStatus = 'Non payé' | 'Payé';
-export type PaymentMethod = 'Virement' | 'Espèce' | 'Chèque';
+export type PaymentMethod = 'Virement' | 'Espèce' | 'Chèque' | 'Carte';
+export type AchatStatus = 'needs_review' | 'validated';
 
 export interface Achat {
   id: string;
+  user_id?: string;
   supplier_name: string;
   invoice_date: string;
   supplier_invoice_number: string;
@@ -78,6 +80,9 @@ export interface Achat {
   notes: string;
   file_url: string | null;
   file_path: string | null;
+  status?: AchatStatus;
+  raw_json?: Record<string, unknown>;
+  ai_confidence?: number;
   created_at: string;
   updated_at: string;
 }
