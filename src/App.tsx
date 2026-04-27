@@ -12,6 +12,10 @@ import AchatList from './AchatList';
 import AchatForm from './AchatForm';
 import ClientList from './ClientList';
 import ClientForm from './ClientForm';
+import Dashboard from './Dashboard';
+import BankStatements from './BankStatements';
+import Reports from './Reports';
+import AppLayout, { type NavSection } from './components/layout/AppLayout';
 
 function Spinner() {
   return (
@@ -29,10 +33,21 @@ type PendingShare = {
   totalTTC: number;
 };
 
+function getNavSection(page: AppPage): NavSection {
+  const n = page.name;
+  if (n === 'dashboard') return 'dashboard';
+  if (n === 'list' || n === 'new' || n === 'edit' || n === 'view') return 'list';
+  if (n === 'achats' || n === 'achat-new' || n === 'achat-edit' || n === 'achat-view') return 'achats';
+  if (n === 'clients' || n === 'client-new' || n === 'client-edit' || n === 'client-view') return 'clients';
+  if (n === 'bank-statements') return 'bank-statements';
+  if (n === 'reports') return 'reports';
+  return 'settings';
+}
+
 export default function App() {
   const [session,      setSession]      = useState<Session | null>(null);
   const [authReady,    setAuthReady]    = useState(false);
-  const [page,         setPage]         = useState<AppPage>({ name: 'list' });
+  const [page,         setPage]         = useState<AppPage>({ name: 'dashboard' });
   const [pendingShare, setPendingShare] = useState<PendingShare | null>(null);
 
   useEffect(() => {
@@ -54,7 +69,13 @@ export default function App() {
   if (!authReady) return <Spinner />;
   if (!session)   return <LoginPage />;
 
-  const goList = () => { setPage({ name: 'list' }); setPendingShare(null); };
+  const goList            = () => { setPage({ name: 'list' });            setPendingShare(null); };
+  const goDashboard       = () => { setPage({ name: 'dashboard' });       setPendingShare(null); };
+  const goAchats          = () => setPage({ name: 'achats' });
+  const goClients         = () => setPage({ name: 'clients' });
+  const goSettings        = () => setPage({ name: 'settings' });
+  const goBankStatements  = () => setPage({ name: 'bank-statements' });
+  const goReports         = () => setPage({ name: 'reports' });
 
   async function handleEmailShare(inv: Invoice) {
     let email: string | undefined;
@@ -76,143 +97,178 @@ export default function App() {
     setPage({ name: 'view', invoiceId: inv.id, printOnLoad: true });
   }
 
-  if (page.name === 'settings') {
-    return <SettingsPage onBack={goList} />;
-  }
+  // Suppress unused-variable warning — kept for future email/WA feature restoration
+  void handleEmailShare;
+  void handleWhatsAppShare;
 
-  const goClients = () => setPage({ name: 'clients' });
+  function renderPage() {
+    if (page.name === 'dashboard') {
+      return (
+        <Dashboard
+          onGoList={goList}
+          onGoAchats={goAchats}
+          onNewDoc={async (docType) => {
+            const number = docType === 'devis'
+              ? await nextDevisNumber()
+              : docType === 'bon_livraison'
+              ? await nextBonLivraisonNumber()
+              : await nextInvoiceNumber();
+            setPage({ name: 'new', invoiceNumber: number, docType });
+          }}
+        />
+      );
+    }
 
-  if (page.name === 'achats') {
-    return (
-      <AchatList
-        onNew={()       => setPage({ name: 'achat-new' })}
-        onEdit={id      => setPage({ name: 'achat-edit', achatId: id })}
-        onView={id      => setPage({ name: 'achat-view', achatId: id })}
-        onFactures={goList}
-        onClients={goClients}
-      />
-    );
-  }
+    if (page.name === 'settings') {
+      return <SettingsPage />;
+    }
 
-  if (page.name === 'achat-new') {
-    return (
-      <AchatForm
-        mode="new"
-        onBack={() => setPage({ name: 'achats' })}
-        onSaved={() => setPage({ name: 'achats' })}
-      />
-    );
-  }
+    if (page.name === 'bank-statements') {
+      return <BankStatements />;
+    }
 
-  if (page.name === 'achat-edit') {
-    return (
-      <AchatForm
-        mode="edit"
-        achatId={page.achatId}
-        onBack={() => setPage({ name: 'achats' })}
-        onSaved={() => setPage({ name: 'achats' })}
-      />
-    );
-  }
+    if (page.name === 'reports') {
+      return <Reports />;
+    }
 
-  if (page.name === 'achat-view') {
-    return (
-      <AchatForm
-        mode="view"
-        achatId={page.achatId}
-        onBack={() => setPage({ name: 'achats' })}
-        onSaved={() => setPage({ name: 'achats' })}
-      />
-    );
-  }
+    if (page.name === 'achats') {
+      return (
+        <AchatList
+          onNew={()  => setPage({ name: 'achat-new' })}
+          onEdit={id => setPage({ name: 'achat-edit', achatId: id })}
+          onView={id => setPage({ name: 'achat-view', achatId: id })}
+        />
+      );
+    }
 
-  if (page.name === 'clients') {
-    return (
-      <ClientList
-        onNew={()   => setPage({ name: 'client-new' })}
-        onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
-        onView={id  => setPage({ name: 'client-view', clientId: id })}
-        onFactures={goList}
-        onAchats={() => setPage({ name: 'achats' })}
-      />
-    );
-  }
+    if (page.name === 'achat-new') {
+      return (
+        <AchatForm
+          mode="new"
+          onBack={goAchats}
+          onSaved={goAchats}
+        />
+      );
+    }
 
-  if (page.name === 'client-new') {
-    return (
-      <ClientForm
-        mode="new"
-        onBack={goClients}
-        onSaved={id => setPage({ name: 'client-view', clientId: id })}
-        onView={id  => setPage({ name: 'client-view', clientId: id })}
-        onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
-      />
-    );
-  }
+    if (page.name === 'achat-edit') {
+      return (
+        <AchatForm
+          mode="edit"
+          achatId={page.achatId}
+          onBack={goAchats}
+          onSaved={goAchats}
+        />
+      );
+    }
 
-  if (page.name === 'client-edit') {
-    return (
-      <ClientForm
-        mode="edit"
-        clientId={page.clientId}
-        onBack={goClients}
-        onSaved={id => setPage({ name: 'client-view', clientId: id })}
-        onView={id  => setPage({ name: 'client-view', clientId: id })}
-        onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
-      />
-    );
-  }
+    if (page.name === 'achat-view') {
+      return (
+        <AchatForm
+          mode="view"
+          achatId={page.achatId}
+          onBack={goAchats}
+          onSaved={goAchats}
+        />
+      );
+    }
 
-  if (page.name === 'client-view') {
-    return (
-      <ClientForm
-        mode="view"
-        clientId={page.clientId}
-        onBack={goClients}
-        onSaved={id => setPage({ name: 'client-view', clientId: id })}
-        onView={id  => setPage({ name: 'client-view', clientId: id })}
-        onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
-      />
-    );
-  }
+    if (page.name === 'clients') {
+      return (
+        <ClientList
+          onNew={()  => setPage({ name: 'client-new' })}
+          onEdit={id => setPage({ name: 'client-edit', clientId: id })}
+          onView={id => setPage({ name: 'client-view', clientId: id })}
+        />
+      );
+    }
 
-  if (page.name === 'list') {
-    return (
-      <InvoiceList
-        onNew={async (docType) => {
-          const number = docType === 'devis'
-            ? await nextDevisNumber()
-            : docType === 'bon_livraison'
-            ? await nextBonLivraisonNumber()
-            : await nextInvoiceNumber();
-          setPage({ name: 'new', invoiceNumber: number, docType });
-        }}
-        onCreateBL={async (inv) => {
-          const number = await nextBonLivraisonNumber();
-          setPage({
-            name: 'new',
-            invoiceNumber: number,
-            docType: 'bon_livraison',
-            prefill: { client: inv.client, clientId: inv.clientId, items: inv.items, sourceDocumentId: inv.id },
-          });
-        }}
-        onEdit={id  => setPage({ name: 'edit', invoiceId: id })}
-        onView={id  => setPage({ name: 'view', invoiceId: id })}
-        onPrint={id => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
-        onSettings={() => setPage({ name: 'settings' })}
-        onAchats={() => setPage({ name: 'achats' })}
-        onClients={goClients}
-      />
-    );
-  }
+    if (page.name === 'client-new') {
+      return (
+        <ClientForm
+          mode="new"
+          onBack={goClients}
+          onSaved={id => setPage({ name: 'client-view', clientId: id })}
+          onView={id  => setPage({ name: 'client-view', clientId: id })}
+          onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
+        />
+      );
+    }
 
-  if (page.name === 'new') {
+    if (page.name === 'client-edit') {
+      return (
+        <ClientForm
+          mode="edit"
+          clientId={page.clientId}
+          onBack={goClients}
+          onSaved={id => setPage({ name: 'client-view', clientId: id })}
+          onView={id  => setPage({ name: 'client-view', clientId: id })}
+          onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
+        />
+      );
+    }
+
+    if (page.name === 'client-view') {
+      return (
+        <ClientForm
+          mode="view"
+          clientId={page.clientId}
+          onBack={goClients}
+          onSaved={id => setPage({ name: 'client-view', clientId: id })}
+          onView={id  => setPage({ name: 'client-view', clientId: id })}
+          onEdit={id  => setPage({ name: 'client-edit', clientId: id })}
+        />
+      );
+    }
+
+    if (page.name === 'list') {
+      return (
+        <InvoiceList
+          onNew={async (docType) => {
+            const number = docType === 'devis'
+              ? await nextDevisNumber()
+              : docType === 'bon_livraison'
+              ? await nextBonLivraisonNumber()
+              : await nextInvoiceNumber();
+            setPage({ name: 'new', invoiceNumber: number, docType });
+          }}
+          onCreateBL={async (inv) => {
+            const number = await nextBonLivraisonNumber();
+            setPage({
+              name: 'new',
+              invoiceNumber: number,
+              docType: 'bon_livraison',
+              prefill: { client: inv.client, clientId: inv.clientId, items: inv.items, sourceDocumentId: inv.id },
+            });
+          }}
+          onEdit={id  => setPage({ name: 'edit', invoiceId: id })}
+          onView={id  => setPage({ name: 'view', invoiceId: id })}
+          onPrint={id => setPage({ name: 'view', invoiceId: id, printOnLoad: true })}
+        />
+      );
+    }
+
+    if (page.name === 'new') {
+      return (
+        <InvoiceForm
+          mode="new"
+          invoiceNumber={page.invoiceNumber}
+          docType={page.docType}
+          prefill={page.prefill}
+          onBack={goList}
+          onSaved={goList}
+        />
+      );
+    }
+
+    // edit / view
     return (
       <InvoiceForm
-        mode="new"
-        invoiceNumber={page.invoiceNumber}
-        docType={page.docType}
-        prefill={page.prefill}
+        mode={page.name}
+        invoiceId={page.invoiceId}
+        printOnLoad={page.name === 'view' ? page.printOnLoad : undefined}
+        pendingShare={pendingShare ?? undefined}
+        onShareOpened={() => setPendingShare(null)}
         onBack={goList}
         onSaved={goList}
       />
@@ -220,14 +276,17 @@ export default function App() {
   }
 
   return (
-    <InvoiceForm
-      mode={page.name}
-      invoiceId={page.invoiceId}
-      printOnLoad={page.name === 'view' ? page.printOnLoad : undefined}
-      pendingShare={pendingShare ?? undefined}
-      onShareOpened={() => setPendingShare(null)}
-      onBack={goList}
-      onSaved={goList}
-    />
+    <AppLayout
+      active={getNavSection(page)}
+      onDashboard={goDashboard}
+      onList={goList}
+      onAchats={goAchats}
+      onClients={goClients}
+      onBankStatements={goBankStatements}
+      onReports={goReports}
+      onSettings={goSettings}
+    >
+      {renderPage()}
+    </AppLayout>
   );
 }

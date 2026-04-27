@@ -89,7 +89,24 @@ export interface Achat {
   updated_at: string;
 }
 
+export interface BankStatement {
+  id: string;
+  user_id?: string;
+  month: number;
+  year: number;
+  opening_balance: number;
+  total_credit: number;
+  total_debit: number;
+  closing_balance: number;
+  notes: string;
+  file_url: string | null;
+  file_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AppPage =
+  | { name: 'dashboard' }
   | { name: 'list' }
   | { name: 'new'; invoiceNumber: string; docType: DocumentType; prefill?: { client: string; clientId?: string; items: LineItem[]; sourceDocumentId?: string } }
   | { name: 'edit'; invoiceId: string }
@@ -102,4 +119,6 @@ export type AppPage =
   | { name: 'clients' }
   | { name: 'client-new' }
   | { name: 'client-edit'; clientId: string }
-  | { name: 'client-view'; clientId: string };
+  | { name: 'client-view'; clientId: string }
+  | { name: 'bank-statements' }
+  | { name: 'reports' };

@@ -1,26 +1,23 @@
 import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import {
-  Plus, Search, Eye, Edit2, Trash2, FileText, LogOut,
+  Plus, Search, Eye, Edit2, Trash2,
   Users, TrendingUp, AlertCircle, UserCheck,
 } from 'lucide-react';
 import type { Client, Invoice } from './types';
 import { getClients, deleteClient } from './services/clientService';
 import { getFactures } from './services/factureService';
-import { signOut } from './services/authService';
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 interface Props {
-  onNew:      () => void;
-  onEdit:     (id: string) => void;
-  onView:     (id: string) => void;
-  onFactures: () => void;
-  onAchats:   () => void;
+  onNew:  () => void;
+  onEdit: (id: string) => void;
+  onView: (id: string) => void;
 }
 
-export default function ClientList({ onNew, onEdit, onView, onFactures, onAchats }: Props) {
+export default function ClientList({ onNew, onEdit, onView }: Props) {
   const [clients,     setClients]     = useState<Client[]>([]);
   const [factures,    setFactures]    = useState<Invoice[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -81,53 +78,21 @@ export default function ClientList({ onNew, onEdit, onView, onFactures, onAchats
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-5xl mx-auto">
 
-      {/* ── Top bar ── */}
-      <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="w-5 h-5 text-slate-700 shrink-0" />
-            <span className="font-semibold text-slate-800 text-sm tracking-wide uppercase truncate">
-              AMOR AMENAGEMENT
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={onNew}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nouveau client</span>
-            </button>
-            <button
-              onClick={() => signOut()}
-              title="Déconnexion"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        {/* Tab nav */}
-        <div className="border-t border-slate-100">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex">
-            <button onClick={onFactures} className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">
-              Factures &amp; Devis
-            </button>
-            <button onClick={onAchats} className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors">
-              Achats
-            </button>
-            <span className="py-2 px-3 text-sm font-semibold text-slate-800 border-b-2 border-slate-800 -mb-px">
-              Clients
-            </span>
-          </div>
-        </div>
+      {/* ── Page header ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-800">Clients</h1>
+        <button
+          onClick={onNew}
+          className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Nouveau client</span>
+        </button>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
-
-        {/* ── Metrics ── */}
+      {/* ── Metrics ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <MetricCard icon={<Users className="w-5 h-5 text-slate-500" />}        label="Total clients"    value={String(clients.length)} />
           <MetricCard icon={<UserCheck className="w-5 h-5 text-violet-500" />}   label="Avec factures"    value={String(Object.keys(clientMetrics).length)} valueClass="text-violet-700" />
@@ -260,13 +225,12 @@ export default function ClientList({ onNew, onEdit, onView, onFactures, onAchats
           )}
         </div>
 
-        {!loading && filtered.length > 0 && (
-          <p className="text-xs text-slate-400 text-right">
-            {filtered.length} client{filtered.length > 1 ? 's' : ''}
-            {filtered.length !== clients.length ? ` sur ${clients.length}` : ''}
-          </p>
-        )}
-      </div>
+      {!loading && filtered.length > 0 && (
+        <p className="text-xs text-slate-400 text-right">
+          {filtered.length} client{filtered.length > 1 ? 's' : ''}
+          {filtered.length !== clients.length ? ` sur ${clients.length}` : ''}
+        </p>
+      )}
     </div>
   );
 }

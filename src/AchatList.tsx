@@ -1,11 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import {
-  Plus, Search, Eye, Edit2, Trash2, ExternalLink, FileText, LogOut,
+  Plus, Search, Eye, Edit2, Trash2, ExternalLink,
   ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload, Sparkles,
 } from 'lucide-react';
 import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
 import { getAchats, deleteAchat, deleteAchatFile, patchAchat } from './services/achatService';
-import { signOut } from './services/authService';
 import AchatImportModal from './AchatImportModal';
 import AchatAIModal from './AchatAIModal';
 
@@ -19,14 +18,12 @@ function dateFR(s: string) {
 }
 
 interface Props {
-  onNew:      () => void;
-  onEdit:     (id: string) => void;
-  onView:     (id: string) => void;
-  onFactures: () => void;
-  onClients:  () => void;
+  onNew:  () => void;
+  onEdit: (id: string) => void;
+  onView: (id: string) => void;
 }
 
-export default function AchatList({ onNew, onEdit, onView, onFactures, onClients }: Props) {
+export default function AchatList({ onNew, onEdit, onView }: Props) {
   const [achats,      setAchats]      = useState<Achat[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [fetchError,  setFetchError]  = useState('');
@@ -132,71 +129,35 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-7xl mx-auto">
 
-      {/* ── Top bar ── */}
-      <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="w-5 h-5 text-slate-700 shrink-0" />
-            <span className="font-semibold text-slate-800 text-sm tracking-wide uppercase truncate">
-              AMOR AMENAGEMENT
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowAIModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-medium rounded-lg transition-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Importer avec IA</span>
-            </button>
-            <button
-              onClick={() => setShowImport(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-all"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Importer</span>
-            </button>
-            <button
-              onClick={onNew}
-              className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nouvel achat</span>
-            </button>
-            <button
-              onClick={() => signOut()}
-              title="Déconnexion"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        {/* Tab nav */}
-        <div className="border-t border-slate-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 flex">
-            <button
-              onClick={onFactures}
-              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-            >
-              Factures &amp; Devis
-            </button>
-            <span className="py-2 px-3 text-sm font-semibold text-slate-800 border-b-2 border-slate-800 -mb-px">
-              Achats
-            </span>
-            <button
-              onClick={onClients}
-              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-            >
-              Clients
-            </button>
-          </div>
+      {/* ── Page header ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-800">Achats</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowAIModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-medium rounded-lg transition-all"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">Importer avec IA</span>
+          </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Importer</span>
+          </button>
+          <button
+            onClick={onNew}
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nouvel achat</span>
+          </button>
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
 
         {/* ── Metrics ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -421,13 +382,12 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
           )}
         </div>
 
-        {!loading && filtered.length > 0 && (
-          <p className="text-xs text-slate-400 text-right">
-            {filtered.length} achat{filtered.length > 1 ? 's' : ''}
-            {filtered.length !== achats.length ? ` sur ${achats.length}` : ''}
-          </p>
-        )}
-      </div>
+      {!loading && filtered.length > 0 && (
+        <p className="text-xs text-slate-400 text-right">
+          {filtered.length} achat{filtered.length > 1 ? 's' : ''}
+          {filtered.length !== achats.length ? ` sur ${achats.length}` : ''}
+        </p>
+      )}
 
       {showImport && (
         <AchatImportModal

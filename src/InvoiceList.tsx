@@ -4,14 +4,13 @@ import type { ReactNode } from 'react';
 import ExportModal from './ExportModal';
 import {
   Plus, Search, Eye, Edit2, Download, Trash2,
-  FileText, ChevronDown, LogOut, Settings,
+  FileText, ChevronDown,
   Receipt, TrendingUp, CheckCircle, Clock,
   Truck,
 } from 'lucide-react';
 import type { Invoice, InvoiceStatus, DocumentType } from './types';
 import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis, blExistsForSource } from './services/factureService';
 import { nextInvoiceNumber } from './services/numberingService';
-import { signOut } from './services/authService';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -43,19 +42,16 @@ function dateFR(s: string) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onNew:        (docType: DocumentType) => Promise<void>;
-  onEdit:       (id: string) => void;
-  onView:       (id: string) => void;
-  onPrint:      (id: string) => void;
-  onSettings:   () => void;
-  onAchats:     () => void;
-  onClients:    () => void;
-  onCreateBL:   (inv: Invoice) => Promise<void>;
+  onNew:      (docType: DocumentType) => Promise<void>;
+  onEdit:     (id: string) => void;
+  onView:     (id: string) => void;
+  onPrint:    (id: string) => void;
+  onCreateBL: (inv: Invoice) => Promise<void>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings, onAchats, onClients, onCreateBL }: Props) {
+export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL }: Props) {
   const [invoices,     setInvoices]     = useState<Invoice[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [newLoading,   setNewLoading]   = useState(false);
@@ -192,73 +188,28 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-5xl mx-auto">
 
-      {/* ── Top bar ── */}
-      <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="w-5 h-5 text-slate-700 shrink-0" />
-            <span className="font-semibold text-slate-800 text-sm tracking-wide uppercase truncate">
-              AMOR AMENAGEMENT
-            </span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <NewDocMenu onNew={handleNew} loading={newLoading} />
-
-            <button
-              onClick={() => setShowExport(true)}
-              title="Exporter"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={onSettings}
-              title="Paramètres"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => signOut()}
-              title="Déconnexion"
-              className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        {/* Tab nav */}
-        <div className="border-t border-slate-100">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 flex">
-            <span className="py-2 px-3 text-sm font-semibold text-slate-800 border-b-2 border-slate-800 -mb-px">
-              Factures &amp; Devis
-            </span>
-            <button
-              onClick={onAchats}
-              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-            >
-              Achats
-            </button>
-            <button
-              onClick={onClients}
-              className="py-2 px-3 text-sm font-medium text-slate-400 hover:text-slate-700 border-b-2 border-transparent -mb-px transition-colors"
-            >
-              Clients
-            </button>
-          </div>
+      {/* ── Page header ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-800">Factures &amp; Devis</h1>
+        <div className="flex items-center gap-2">
+          <NewDocMenu onNew={handleNew} loading={newLoading} />
+          <button
+            onClick={() => setShowExport(true)}
+            title="Exporter"
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all border border-slate-200 bg-white rounded-lg"
+          >
+            <Download className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
-
-        {newError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
-            {newError}
-          </div>
-        )}
+      {newError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+          {newError}
+        </div>
+      )}
 
         {/* ── Metrics ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -439,13 +390,12 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
           )}
         </div>
 
-        {!loading && filtered.length > 0 && (
-          <p className="text-xs text-slate-400 text-right">
-            {filtered.length} facture{filtered.length > 1 ? 's' : ''}
-            {filtered.length !== invoices.length ? ` sur ${invoices.length}` : ''}
-          </p>
-        )}
-      </div>
+      {!loading && filtered.length > 0 && (
+        <p className="text-xs text-slate-400 text-right">
+          {filtered.length} facture{filtered.length > 1 ? 's' : ''}
+          {filtered.length !== invoices.length ? ` sur ${invoices.length}` : ''}
+        </p>
+      )}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
     </div>
   );
