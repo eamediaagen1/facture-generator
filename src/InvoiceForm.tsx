@@ -1,10 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut } from 'lucide-react';
+import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut, Stamp, PenLine, X } from 'lucide-react';
 import { numberToFrenchWords } from './numberToWords';
 import type { Invoice, InvoiceStatus, LineItem, DocumentType, Client } from './types';
 import { getFacture, upsertFacture } from './services/factureService';
 import { getClients } from './services/clientService';
 import { signOut } from './services/authService';
+import { sendConfirmationEmail } from './services/emailService';
+
+const stampFiles = import.meta.glob<string>('./assets/stamp.png', { eager: true, query: '?url', import: 'default' });
+const STAMP_URL: string | null = stampFiles['./assets/stamp.png'] ?? null;
 
 // Drop src/assets/logo.png to enable logo — falls back to company name text
 const logoFiles = import.meta.glob<string>('./assets/logo.png', { eager: true, query: '?url', import: 'default' });
@@ -46,18 +50,29 @@ function dateFR(s: string) {
   return `${d}/${m}/${y}`;
 }
 
+type ShareIntent = {
+  type: 'email' | 'whatsapp';
+  email?: string;
+  phone?: string;
+  invoiceNum: string;
+  totalTTC: number;
+};
+
 interface Props {
   mode: 'new' | 'edit' | 'view';
   invoiceNumber?: string;
   invoiceId?: string;
   docType?: DocumentType;
   printOnLoad?: boolean;
+  pendingShare?: ShareIntent;
+  onShareOpened?: () => void;
   onBack: () => void;
   onSaved: () => void;
 }
 
 export default function InvoiceForm({
-  mode, invoiceNumber: newNumber, invoiceId, docType: docTypeProp, printOnLoad, onBack, onSaved,
+  mode, invoiceNumber: newNumber, invoiceId, docType: docTypeProp, printOnLoad,
+  pendingShare, onShareOpened, onBack, onSaved,
 }: Props) {
   const readOnly    = mode === 'view';
   const internalId  = useRef<string>(invoiceId ?? uid());
@@ -82,6 +97,34 @@ export default function InvoiceForm({
   const [clientSearch, setClientSearch] = useState('');
   const [showDrop,     setShowDrop]     = useState(false);
 
+  // Stamp overlay
+  const [stampVisible, setStampVisible] = useState(false);
+  const [stampPos,     setStampPos]     = useState({ x: 65, y: 75 });
+
+  // Signature overlay
+  const [sigVisible,   setSigVisible]   = useState(false);
+  const [sigPos,       setSigPos]       = useState({ x: 15, y: 80 });
+  const [sigData,      setSigData]      = useState<string | null>(null);
+
+  // Signature modal
+  const [showSigModal, setShowSigModal] = useState(false);
+  const [sigTab,       setSigTab]       = useState<'draw' | 'upload'>('draw');
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const isDrawing   = useRef(false);
+  const lastPt      = useRef({ x: 0, y: 0 });
+
+  // Drag
+  const [dragging,  setDragging]  = useState<'stamp' | 'sig' | null>(null);
+  const pageRef     = useRef<HTMLDivElement>(null);
+  const dragStart   = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
+
+  // Email confirmation before save
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
+  const [confirmEmail,     setConfirmEmail]     = useState('');
+
+  // Share notice banner (after afterprint)
+  const [shareNotice, setShareNotice] = useState('');
+
   useEffect(() => {
     if (readOnly) return;
     getClients().then(setCrmClients).catch(() => {});
@@ -99,6 +142,8 @@ export default function InvoiceForm({
         setDocType(inv.documentType ?? 'facture');
         setItems(inv.items);
         setClientId(inv.clientId ?? null);
+        if (inv.stampPos)     { setStampPos(inv.stampPos); setStampVisible(true); }
+        if (inv.signatureData){ setSigData(inv.signatureData); setSigPos(inv.signaturePos ?? { x: 15, y: 80 }); setSigVisible(true); }
       }
       setFetchLoading(false);
     });
@@ -106,13 +151,124 @@ export default function InvoiceForm({
 
   useEffect(() => {
     if (!printOnLoad || fetchLoading) return;
-    const t = setTimeout(() => { setPrintTitle(); window.print(); }, 500);
+    const t = setTimeout(() => {
+      document.title = `AMOR AMENAGEMENT - ${invoiceNum}`;
+      window.addEventListener('afterprint', () => {
+        document.title = 'Facture';
+        if (pendingShare) { triggerShare(pendingShare); onShareOpened?.(); }
+      }, { once: true });
+      window.print();
+    }, 500);
     return () => clearTimeout(t);
   }, [printOnLoad, fetchLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Drag event listeners
+  useEffect(() => {
+    if (!dragging) return;
+    function onMove(e: MouseEvent) {
+      if (!dragStart.current || !pageRef.current) return;
+      const rect = pageRef.current.getBoundingClientRect();
+      const dx = (e.clientX - dragStart.current.mx) / rect.width * 100;
+      const dy = (e.clientY - dragStart.current.my) / rect.height * 100;
+      const nx = Math.max(5, Math.min(95, dragStart.current.ox + dx));
+      const ny = Math.max(2, Math.min(98, dragStart.current.oy + dy));
+      if (dragging === 'stamp') setStampPos({ x: nx, y: ny });
+      else setSigPos({ x: nx, y: ny });
+    }
+    function onMoveTouch(e: TouchEvent) {
+      if (!dragStart.current || !pageRef.current || !e.touches[0]) return;
+      const rect = pageRef.current.getBoundingClientRect();
+      const dx = (e.touches[0].clientX - dragStart.current.mx) / rect.width * 100;
+      const dy = (e.touches[0].clientY - dragStart.current.my) / rect.height * 100;
+      const nx = Math.max(5, Math.min(95, dragStart.current.ox + dx));
+      const ny = Math.max(2, Math.min(98, dragStart.current.oy + dy));
+      if (dragging === 'stamp') setStampPos({ x: nx, y: ny });
+      else setSigPos({ x: nx, y: ny });
+    }
+    function onUp() { setDragging(null); dragStart.current = null; }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMoveTouch, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMoveTouch);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, [dragging]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setPrintTitle() {
     document.title = `AMOR AMENAGEMENT - ${invoiceNum}`;
     window.addEventListener('afterprint', () => { document.title = 'Facture'; }, { once: true });
+  }
+
+  function startDrag(e: React.MouseEvent, which: 'stamp' | 'sig') {
+    e.preventDefault();
+    const pos = which === 'stamp' ? stampPos : sigPos;
+    dragStart.current = { mx: e.clientX, my: e.clientY, ox: pos.x, oy: pos.y };
+    setDragging(which);
+  }
+
+  function startDragTouch(e: React.TouchEvent, which: 'stamp' | 'sig') {
+    const t = e.touches[0];
+    if (!t) return;
+    const pos = which === 'stamp' ? stampPos : sigPos;
+    dragStart.current = { mx: t.clientX, my: t.clientY, ox: pos.x, oy: pos.y };
+    setDragging(which);
+  }
+
+  function triggerShare(share: ShareIntent) {
+    const fmtTotal = share.totalTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const label = share.invoiceNum.toLowerCase().startsWith('d') ? 'devis' : 'facture';
+    const body = `Bonjour,\n\nVeuillez trouver ci-joint votre ${label} ${share.invoiceNum} d'un montant de ${fmtTotal} DH.\n\nCordialement,\nAMOR AMENAGEMENT`;
+    if (share.type === 'email') {
+      const subject = encodeURIComponent(`Facture ${share.invoiceNum} - AMOR AMENAGEMENT`);
+      window.location.href = `mailto:${share.email ?? ''}?subject=${subject}&body=${encodeURIComponent(body)}`;
+      setShareNotice(share.email ? `Email pré-rempli pour ${share.email}. Joignez le PDF.` : `Email pré-rempli. Ajoutez le destinataire et joignez le PDF.`);
+    } else {
+      const phone = (share.phone ?? '').replace(/[^0-9+]/g, '').replace(/^0([0-9])/, '212$1');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(body)}`, '_blank');
+      setShareNotice(share.phone ? `WhatsApp ouvert pour ${share.phone}. Joignez le PDF.` : `WhatsApp ouvert. Joignez le PDF.`);
+    }
+  }
+
+  // Canvas drawing helpers
+  function canvasDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    isDrawing.current = true;
+    const r = e.currentTarget.getBoundingClientRect();
+    lastPt.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function canvasDraw(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (!isDrawing.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext('2d')!;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e293b';
+    ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(x, y); ctx.stroke();
+    lastPt.current = { x, y };
+  }
+  function canvasUp() { isDrawing.current = false; }
+  function clearCanvas() {
+    if (!canvasRef.current) return;
+    canvasRef.current.getContext('2d')!.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  }
+  function confirmDrawnSig() {
+    if (!canvasRef.current) return;
+    setSigData(canvasRef.current.toDataURL('image/png'));
+    setSigVisible(true); setSigPos({ x: 15, y: 80 });
+    setShowSigModal(false);
+  }
+  function handleSigUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setSigData(ev.target?.result as string);
+      setSigVisible(true); setSigPos({ x: 15, y: 80 });
+      setShowSigModal(false);
+    };
+    reader.readAsDataURL(file);
   }
 
   const addItem = useCallback(() => {
@@ -165,6 +321,9 @@ export default function InvoiceForm({
         documentType: docType,
         createdAt:    new Date().toISOString(),
         clientId:     clientId ?? undefined,
+        stampPos:     stampVisible ? stampPos : undefined,
+        signaturePos: sigVisible && sigData ? sigPos : undefined,
+        signatureData: sigVisible && sigData ? sigData : undefined,
       };
       await upsertFacture(invoice);
       onSaved();
@@ -173,6 +332,20 @@ export default function InvoiceForm({
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleSaveClick() {
+    const linkedClient = clientId ? crmClients.find(c => c.id === clientId) : null;
+    setConfirmEmail(linkedClient?.email ?? '');
+    setShowEmailConfirm(true);
+  }
+
+  async function proceedSave(withEmail: boolean) {
+    setShowEmailConfirm(false);
+    if (withEmail && confirmEmail) {
+      try { await sendConfirmationEmail(confirmEmail, invoiceNum, totalTTC, docType); } catch (_) {}
+    }
+    await handleSave();
   }
 
   function handlePrint() { setPrintTitle(); window.print(); }
@@ -245,17 +418,32 @@ export default function InvoiceForm({
           </div>
           <div className="flex gap-2">
             {!readOnly && (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all"
-              >
-                {saving
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <Save className="w-4 h-4" />
-                }
-                Sauvegarder
-              </button>
+              <>
+                <button
+                  onClick={handleSaveClick}
+                  disabled={saving}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all"
+                >
+                  {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                  Sauvegarder
+                </button>
+                {STAMP_URL && (
+                  <button
+                    onClick={() => setStampVisible(v => !v)}
+                    title={stampVisible ? 'Retirer le cachet' : 'Ajouter le cachet'}
+                    className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border transition-all ${stampVisible ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    <Stamp className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSigTab('draw'); setShowSigModal(true); }}
+                  title={sigVisible ? 'Modifier la signature' : 'Ajouter une signature'}
+                  className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border transition-all ${sigVisible ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                >
+                  <PenLine className="w-4 h-4" />
+                </button>
+              </>
             )}
             <button
               onClick={handlePrint}
@@ -286,17 +474,34 @@ export default function InvoiceForm({
           <div className="flex items-center gap-2">
             {statusControl}
             {!readOnly && (
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
-              >
-                {saving
-                  ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <Save className="w-4 h-4" />
-                }
-                Sauvegarder
-              </button>
+              <>
+                {STAMP_URL && (
+                  <button
+                    onClick={() => setStampVisible(v => !v)}
+                    title={stampVisible ? 'Retirer le cachet' : 'Ajouter le cachet'}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-all shadow-sm ${stampVisible ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    <Stamp className="w-4 h-4" />
+                    Cachet
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSigTab('draw'); setShowSigModal(true); }}
+                  title={sigVisible ? 'Modifier la signature' : 'Ajouter une signature'}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-all shadow-sm ${sigVisible ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  <PenLine className="w-4 h-4" />
+                  Signature
+                </button>
+                <button
+                  onClick={handleSaveClick}
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+                >
+                  {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                  Sauvegarder
+                </button>
+              </>
             )}
             <button
               onClick={handlePrint}
@@ -319,6 +524,12 @@ export default function InvoiceForm({
             <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
           </div>
         )}
+        {shareNotice && (
+          <div className="px-4 pb-2 max-w-4xl mx-auto flex items-center justify-between gap-3 bg-blue-50 border-b border-blue-200 py-2">
+            <p className="text-xs text-blue-700">{shareNotice}</p>
+            <button onClick={() => setShareNotice('')} className="text-blue-400 hover:text-blue-700 shrink-0"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
       </div>
 
       {/* ── Invoice card ── */}
@@ -328,7 +539,7 @@ export default function InvoiceForm({
         Print:   inv-spacing / inv-border CSS overrides handle layout
       */}
       <div className="w-[794px] mx-auto my-6 print:my-0 inv-spacing print:flex-none">
-        <div className="bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page">
+        <div ref={pageRef} className="relative bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page">
 
           {/* ── Header ── */}
           <div className="bg-white border-b border-slate-200 px-4 sm:px-8 print:px-8 py-4 sm:py-6 shrink-0 invoice-header">
@@ -568,6 +779,42 @@ export default function InvoiceForm({
 
           </div>{/* ── end invoice-body ── */}
 
+          {/* ── Stamp overlay ── */}
+          {stampVisible && STAMP_URL && (
+            <div
+              className={`absolute select-none z-10 ${!readOnly ? 'cursor-move' : ''}`}
+              style={{ left: `${stampPos.x}%`, top: `${stampPos.y}%`, transform: 'translate(-50%, -50%)' }}
+              onMouseDown={!readOnly ? e => startDrag(e, 'stamp') : undefined}
+              onTouchStart={!readOnly ? e => startDragTouch(e, 'stamp') : undefined}
+            >
+              <img src={STAMP_URL} alt="Cachet" className="w-[265px] h-[265px] object-contain pointer-events-none opacity-90" />
+              {!readOnly && (
+                <button
+                  className="no-print absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow"
+                  onClick={e => { e.stopPropagation(); setStampVisible(false); }}
+                ><X className="w-3 h-3" /></button>
+              )}
+            </div>
+          )}
+
+          {/* ── Signature overlay ── */}
+          {sigVisible && sigData && (
+            <div
+              className={`absolute select-none z-10 ${!readOnly ? 'cursor-move' : ''}`}
+              style={{ left: `${sigPos.x}%`, top: `${sigPos.y}%`, transform: 'translate(-50%, -50%)' }}
+              onMouseDown={!readOnly ? e => startDrag(e, 'sig') : undefined}
+              onTouchStart={!readOnly ? e => startDragTouch(e, 'sig') : undefined}
+            >
+              <img src={sigData} alt="Signature" className="h-20 max-w-[160px] object-contain pointer-events-none" />
+              {!readOnly && (
+                <button
+                  className="no-print absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow"
+                  onClick={e => { e.stopPropagation(); setSigVisible(false); setSigData(null); }}
+                ><X className="w-3 h-3" /></button>
+              )}
+            </div>
+          )}
+
           {/* ── Footer ── */}
           <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-3 invoice-footer shrink-0">
             <div className="flex justify-center items-baseline gap-4 sm:gap-8 print:gap-8 mb-1 flex-wrap">
@@ -592,6 +839,102 @@ export default function InvoiceForm({
 
         </div>
       </div>
+
+      {/* ── Signature modal ── */}
+      {showSigModal && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800 text-sm">Ajouter une signature</h2>
+              <button onClick={() => setShowSigModal(false)} className="text-slate-400 hover:text-slate-700 transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            {/* Tabs */}
+            <div className="flex border-b border-slate-100 px-5">
+              <button
+                onClick={() => setSigTab('draw')}
+                className={`py-2.5 px-1 mr-4 text-sm font-medium border-b-2 transition-colors ${sigTab === 'draw' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >Dessiner</button>
+              <button
+                onClick={() => setSigTab('upload')}
+                className={`py-2.5 px-1 text-sm font-medium border-b-2 transition-colors ${sigTab === 'upload' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+              >Importer</button>
+            </div>
+            <div className="p-5">
+              {sigTab === 'draw' ? (
+                <>
+                  <p className="text-xs text-slate-500 mb-3">Dessinez votre signature dans la zone ci-dessous :</p>
+                  <canvas
+                    ref={canvasRef}
+                    width={380} height={140}
+                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 cursor-crosshair touch-none"
+                    onMouseDown={canvasDown}
+                    onMouseMove={canvasDraw}
+                    onMouseUp={canvasUp}
+                    onMouseLeave={canvasUp}
+                  />
+                  <button onClick={clearCanvas} className="mt-2 text-xs text-slate-400 hover:text-slate-600 transition-colors">Effacer</button>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => setShowSigModal(false)} className="flex-1 py-2.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Annuler</button>
+                    <button onClick={confirmDrawnSig} className="flex-1 py-2.5 text-sm bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition-colors font-medium">Confirmer</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-500 mb-3">Importez une image de signature (PNG transparent recommandé) :</p>
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <PenLine className="w-6 h-6 text-slate-400 mb-2" />
+                    <span className="text-xs text-slate-500">Cliquez pour choisir un fichier</span>
+                    <input type="file" accept="image/*" className="sr-only" onChange={handleSigUpload} />
+                  </label>
+                  <div className="flex gap-3 mt-4">
+                    <button onClick={() => setShowSigModal(false)} className="flex-1 py-2.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Annuler</button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Email confirmation modal ── */}
+      {showEmailConfirm && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-800 text-sm">Confirmation avant sauvegarde</h2>
+              <button onClick={() => setShowEmailConfirm(false)} className="text-slate-400 hover:text-slate-700 transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-slate-600">Envoyer une confirmation par email avant de finaliser ?</p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1.5">Email du destinataire</label>
+                <input
+                  type="email"
+                  value={confirmEmail}
+                  onChange={e => setConfirmEmail(e.target.value)}
+                  placeholder="client@example.com"
+                  className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all"
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  onClick={() => proceedSave(true)}
+                  disabled={!confirmEmail}
+                  className="w-full py-2.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg transition-colors font-medium"
+                >
+                  Envoyer la confirmation et sauvegarder
+                </button>
+                <button
+                  onClick={() => proceedSave(false)}
+                  className="w-full py-2.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Sauvegarder sans envoyer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,14 @@ import type { Invoice, InvoiceStatus, DocumentType } from '../types';
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
 
+type OverlaysJson = {
+  stampPos?: { x: number; y: number };
+  signaturePos?: { x: number; y: number };
+  signatureData?: string;
+};
+
 function toInvoice(row: Record<string, unknown>): Invoice {
+  const ov = (row.overlays ?? {}) as OverlaysJson;
   return {
     id:        row.id        as string,
     number:    row.number    as string,
@@ -19,10 +26,17 @@ function toInvoice(row: Record<string, unknown>): Invoice {
     createdAt:     row.created_at     as string,
     originDevisId: row.origin_devis_id as string | undefined,
     clientId:      row.client_id       as string | undefined,
+    stampPos:      ov.stampPos,
+    signaturePos:  ov.signaturePos,
+    signatureData: ov.signatureData,
   };
 }
 
 function toRow(inv: Invoice) {
+  const overlays: OverlaysJson = {};
+  if (inv.stampPos)     overlays.stampPos     = inv.stampPos;
+  if (inv.signaturePos) overlays.signaturePos = inv.signaturePos;
+  if (inv.signatureData) overlays.signatureData = inv.signatureData;
   return {
     id:         inv.id,
     number:     inv.number,
@@ -37,6 +51,7 @@ function toRow(inv: Invoice) {
     document_type:   inv.documentType,
     origin_devis_id: inv.originDevisId,
     client_id:       inv.clientId ?? null,
+    overlays,
   };
 }
 

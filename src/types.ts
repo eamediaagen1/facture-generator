@@ -29,6 +29,9 @@ export interface Invoice {
   createdAt: string;
   originDevisId?: string;
   clientId?: string;
+  stampPos?: { x: number; y: number };
+  signaturePos?: { x: number; y: number };
+  signatureData?: string;
 }
 
 export interface Client {
@@ -58,6 +61,7 @@ export interface ClientDocument {
 }
 
 export type AchatPaymentStatus = 'Non payé' | 'Payé';
+export type PaymentMethod = 'Virement' | 'Espèce' | 'Chèque';
 
 export interface Achat {
   id: string;
@@ -70,6 +74,7 @@ export interface Achat {
   tva: number;
   amount_ttc: number;
   payment_status: AchatPaymentStatus;
+  payment_method?: PaymentMethod;
   notes: string;
   file_url: string | null;
   file_path: string | null;

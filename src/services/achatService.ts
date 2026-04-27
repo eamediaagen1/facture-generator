@@ -34,6 +34,21 @@ export async function upsertAchat(achat: Achat): Promise<Achat> {
   return data as Achat;
 }
 
+export async function bulkInsertAchats(rows: Omit<Achat, 'id' | 'created_at' | 'updated_at'>[]): Promise<number> {
+  const now = new Date().toISOString();
+  const insert = rows.map(r => ({
+    ...r,
+    id:         crypto.randomUUID(),
+    file_url:   null,
+    file_path:  null,
+    created_at: now,
+    updated_at: now,
+  }));
+  const { error } = await supabase.from('achats').insert(insert);
+  if (error) throw error;
+  return insert.length;
+}
+
 export async function deleteAchat(id: string): Promise<void> {
   const { error } = await supabase.from('achats').delete().eq('id', id);
   if (error) throw error;

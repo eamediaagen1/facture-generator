@@ -214,6 +214,8 @@ export default function App() {
       mode={page.name}
       invoiceId={page.invoiceId}
       printOnLoad={page.name === 'view' ? page.printOnLoad : undefined}
+      pendingShare={pendingShare ?? undefined}
+      onShareOpened={() => setPendingShare(null)}
       onBack={goList}
       onSaved={goList}
     />

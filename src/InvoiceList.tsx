@@ -350,6 +350,8 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
                     onPrint={() => onPrint(inv.id)}
                     onDelete={() => handleDelete(inv.id)}
                     onStatusChange={s => handleStatusChange(inv.id, s)}
+                    onEmailShare={() => onEmailShare(inv)}
+                    onWhatsAppShare={() => onWhatsAppShare(inv)}
                   />
                 ))}
               </div>
@@ -371,7 +373,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onSettings
 // ── Mobile invoice card ───────────────────────────────────────────────────────
 
 function MobileInvoiceCard({
-  inv, onView, onEdit, onPrint, onDelete, onStatusChange,
+  inv, onView, onEdit, onPrint, onDelete, onStatusChange, onEmailShare, onWhatsAppShare,
 }: {
   inv: Invoice;
   onView: () => void;
@@ -379,6 +381,8 @@ function MobileInvoiceCard({
   onPrint: () => void;
   onDelete: () => void;
   onStatusChange: (s: InvoiceStatus) => void;
+  onEmailShare: () => void;
+  onWhatsAppShare: () => void;
 }) {
   const clientLine = inv.client.split('\n')[0].trim();
   return (
@@ -401,12 +405,12 @@ function MobileInvoiceCard({
           <p className="text-base font-bold text-slate-800 mt-0.5">{fmt(inv.totalTTC)} DH</p>
         </div>
         <div className="flex items-center gap-1">
-          <Btn title="Voir"            onClick={onView}>  <Eye      className="w-5 h-5" /></Btn>
-          <Btn title="Modifier"        onClick={onEdit}>  <Edit2    className="w-5 h-5" /></Btn>
-          <Btn title="Télécharger PDF" onClick={onPrint}> <Download className="w-5 h-5" /></Btn>
-          <Btn title="Supprimer"       onClick={onDelete} danger>
-            <Trash2 className="w-5 h-5" />
-          </Btn>
+          <Btn title="Voir"                 onClick={onView}>          <Eye           className="w-5 h-5" /></Btn>
+          <Btn title="Modifier"             onClick={onEdit}>          <Edit2         className="w-5 h-5" /></Btn>
+          <Btn title="Télécharger PDF"      onClick={onPrint}>         <Download      className="w-5 h-5" /></Btn>
+          <Btn title="Envoyer par e-mail"   onClick={onEmailShare}>    <Mail          className="w-5 h-5" /></Btn>
+          <Btn title="Envoyer par WhatsApp" onClick={onWhatsAppShare}> <MessageCircle className="w-5 h-5" /></Btn>
+          <Btn title="Supprimer"            onClick={onDelete} danger>  <Trash2        className="w-5 h-5" /></Btn>
         </div>
       </div>
     </div>

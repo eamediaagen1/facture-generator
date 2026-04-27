@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { ArrowLeft, Save, Upload, X, ExternalLink, LogOut } from 'lucide-react';
-import type { Achat, AchatPaymentStatus } from './types';
+import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
 import {
   getAchat, upsertAchat, validateFile, uploadAchatFile, deleteAchatFile,
 } from './services/achatService';
@@ -50,6 +50,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
   const [amountHT,               setAmountHT]               = useState<number | ''>('');
   const [tva,                    setTva]                    = useState<number | ''>('');
   const [paymentStatus,          setPaymentStatus]          = useState<AchatPaymentStatus>('Non payé');
+  const [paymentMethod,          setPaymentMethod]          = useState<PaymentMethod>('Virement');
   const [notes,                  setNotes]                  = useState('');
   const [createdAt,              setCreatedAt]              = useState('');
 
@@ -75,6 +76,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         setAmountHT(a.amount_ht);
         setTva(a.tva);
         setPaymentStatus(a.payment_status);
+        setPaymentMethod(a.payment_method ?? 'Virement');
         setNotes(a.notes);
         setExistingFileUrl(a.file_url);
         setExistingFilePath(a.file_path);
@@ -129,6 +131,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         tva:                     Number(tva) || 0,
         amount_ttc:              amountTTC,
         payment_status:          paymentStatus,
+        payment_method:          paymentMethod,
         notes:                   notes.trim(),
         file_url:                fileUrl,
         file_path:               filePath,
@@ -361,6 +364,20 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
                 </div>
             }
           </Field>
+          <Field label="Mode de paiement">
+            {readOnly
+              ? <PaymentMethodBadge value={paymentMethod} />
+              : <select
+                  value={paymentMethod}
+                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                  className={INPUT}
+                >
+                  <option value="Virement">Virement</option>
+                  <option value="Espèce">Espèce</option>
+                  <option value="Chèque">Chèque</option>
+                </select>
+            }
+          </Field>
           <Field label="Notes">
             {readOnly
               ? <Val>{notes || '—'}</Val>
@@ -478,4 +495,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function Val({ children }: { children: ReactNode }) {
   return <p className="text-sm text-slate-800 py-1.5">{children}</p>;
+}
+
+function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {
+  const styles: Record<string, string> = {
+    'Virement': 'bg-blue-50 text-blue-700',
+    'Espèce':   'bg-emerald-50 text-emerald-700',
+    'Chèque':   'bg-violet-50 text-violet-700',
+  };
+  const label = value ?? 'Virement';
+  return (
+    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${styles[label] ?? styles['Virement']}`}>
+      {label}
+    </span>
+  );
 }

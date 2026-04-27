@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import {
   Plus, Search, Eye, Edit2, Trash2, ExternalLink, FileText, LogOut,
-  ShoppingCart, TrendingDown, CheckCircle, AlertCircle,
+  ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload,
 } from 'lucide-react';
-import type { Achat, AchatPaymentStatus } from './types';
+import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
 import { getAchats, deleteAchat, deleteAchatFile } from './services/achatService';
 import { signOut } from './services/authService';
+import AchatImportModal from './AchatImportModal';
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -31,6 +32,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
   const [search,      setSearch]      = useState('');
   const [statusFilter, setStatusFilter] = useState<AchatPaymentStatus | ''>('');
   const [yearFilter,  setYearFilter]  = useState('');
+  const [showImport,  setShowImport]  = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,6 +96,13 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowImport(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium rounded-lg transition-all"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Importer</span>
+            </button>
             <button
               onClick={onNew}
               className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
@@ -226,6 +235,7 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
                       <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-32">Catégorie</th>
                       <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-36">Montant TTC</th>
                       <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Statut</th>
+                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Mode</th>
                       <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3 w-36">Actions</th>
                     </tr>
                   </thead>
@@ -258,6 +268,9 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
                           }`}>
                             {a.payment_status}
                           </span>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <PaymentMethodBadge value={a.payment_method} />
                         </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center justify-end gap-0.5">
@@ -306,6 +319,14 @@ export default function AchatList({ onNew, onEdit, onView, onFactures, onClients
           </p>
         )}
       </div>
+
+      {showImport && (
+        <AchatImportModal
+          existingAchats={achats}
+          onClose={() => setShowImport(false)}
+          onImported={() => { setShowImport(false); load(); }}
+        />
+      )}
     </div>
   );
 }
@@ -327,13 +348,16 @@ function MobileAchatCard({
           <span className="text-sm font-semibold text-slate-800 block">{achat.supplier_name || '—'}</span>
           <p className="text-xs text-slate-400 mt-0.5">{achat.category || 'Sans catégorie'}</p>
         </div>
-        <span className={`shrink-0 inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-          achat.payment_status === 'Payé'
-            ? 'bg-emerald-50 text-emerald-700'
-            : 'bg-amber-50 text-amber-700'
-        }`}>
-          {achat.payment_status}
-        </span>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+            achat.payment_status === 'Payé'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-amber-50 text-amber-700'
+          }`}>
+            {achat.payment_status}
+          </span>
+          <PaymentMethodBadge value={achat.payment_method} />
+        </div>
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -358,6 +382,23 @@ function MobileAchatCard({
         </div>
       </div>
     </div>
+  );
+}
+
+// ── PaymentMethodBadge ────────────────────────────────────────────────────────
+
+const PM_STYLES: Record<PaymentMethod, string> = {
+  'Virement': 'bg-blue-50 text-blue-700',
+  'Espèce':   'bg-emerald-50 text-emerald-700',
+  'Chèque':   'bg-violet-50 text-violet-700',
+};
+
+function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {
+  const label = value ?? 'Virement';
+  return (
+    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${PM_STYLES[label] ?? PM_STYLES['Virement']}`}>
+      {label}
+    </span>
   );
 }
 
