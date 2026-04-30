@@ -107,6 +107,39 @@ Rules:
 - Do not wrap the JSON in markdown code blocks
 - Return only the JSON object, no other text`
 
+function invoiceDraftPrompt(docType: string, promptText: string): string {
+  const label = docType === 'devis' ? 'quote/devis' : 'invoice/facture'
+  return `You convert natural-language instructions or document content into an editable ${label} draft for a Moroccan construction/service company.
+
+Return ONLY a valid JSON object with exactly this shape:
+{
+  "client": "string — client name and address as multiline text if available, empty string if unknown",
+  "items": [
+    {
+      "designation": "string — service/product description in French if possible",
+      "quantity": number,
+      "unit_price": number
+    }
+  ],
+  "notes": "string — short warning/assumptions for the user to review, empty string if none",
+  "confidence": number
+}
+
+Rules:
+- Do NOT create, infer, or return a document number.
+- Do NOT return status, totals, database ids, storage paths, or PDF fields.
+- The app uses fixed TVA separately, so do not add TVA as a line item unless the user explicitly asks for it as a service/product.
+- Monetary values must be numbers, not strings.
+- If the user gives a total line amount and quantity, compute unit_price = line total / quantity.
+- If quantity is omitted, use 1.
+- If price is omitted but an item is clearly requested, use 0 and explain in notes.
+- Return at least one item when possible.
+- Do not wrap the JSON in markdown code blocks.
+
+User prompt:
+${promptText || '(No extra text prompt provided; use the uploaded file only.)'}`
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return errorResponse(405, 'Method not allowed')
@@ -131,6 +164,145 @@ Deno.serve(async (req: Request) => {
       form = await req.formData()
     } catch {
       return errorResponse(400, 'Corps de la requête invalide (FormData attendu)')
+    }
+
+    const intent = String(form.get('intent') ?? '')
+
+    if (intent === 'invoice_draft') {
+      const docType = String(form.get('doc_type') ?? 'facture') === 'devis' ? 'devis' : 'facture'
+      const promptText = String(form.get('prompt') ?? '').trim()
+      const file = form.get('file') as File | null
+      if (!promptText && !file) return errorResponse(400, 'Prompt ou fichier requis')
+
+      const openaiKey = Deno.env.get('OPENAI_API_KEY')
+      if (!openaiKey) return errorResponse(500, 'OPENAI_API_KEY non configurée dans les secrets de la fonction')
+
+      let inputContent: unknown[]
+      let fileIdToCleanup: string | null = null
+      const prompt = invoiceDraftPrompt(docType, promptText)
+
+      if (file) {
+        const mimeType = resolvedMime(file)
+        const ext = fileExt(file.name)
+        let branch: 'pdf' | 'image' | null = null
+        if (mimeType === 'application/pdf' || ext === 'pdf') {
+          branch = 'pdf'
+        } else if (['image/jpeg', 'image/png'].includes(mimeType) || ['jpg', 'jpeg', 'png'].includes(ext)) {
+          branch = 'image'
+        }
+
+        if (!branch) {
+          return errorResponse(400, `Type de fichier non supporté: "${mimeType || ext || file.name}". Acceptés: PDF, JPG, PNG`)
+        }
+        if (file.size > MAX_SIZE) {
+          return errorResponse(400, `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(1)} MB, max 5 MB)`)
+        }
+
+        const fileBytes = await file.arrayBuffer()
+
+        if (branch === 'pdf') {
+          const oaForm = new FormData()
+          oaForm.append('file', new Blob([fileBytes], { type: mimeType }), file.name)
+          oaForm.append('purpose', 'user_data')
+
+          const uploadRes = await fetch('https://api.openai.com/v1/files', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${openaiKey}` },
+            body: oaForm,
+          })
+
+          if (!uploadRes.ok) {
+            const errText = await uploadRes.text()
+            return errorResponse(502, "Échec de l'envoi du fichier à OpenAI", errText)
+          }
+
+          const uploadJson = await uploadRes.json()
+          const fileId: string = uploadJson.id
+          if (!fileId) return errorResponse(502, "OpenAI Files API n'a pas retourné d'ID de fichier")
+          fileIdToCleanup = fileId
+
+          inputContent = [
+            { type: 'input_file', file_id: fileId },
+            { type: 'input_text', text: prompt },
+          ]
+        } else {
+          const uint8 = new Uint8Array(fileBytes)
+          let binary = ''
+          for (let i = 0; i < uint8.length; i += 8192) {
+            binary += String.fromCharCode(...uint8.subarray(i, i + 8192))
+          }
+          const base64 = btoa(binary)
+
+          inputContent = [
+            { type: 'input_image', image_url: `data:${mimeType};base64,${base64}` },
+            { type: 'input_text', text: prompt },
+          ]
+        }
+      } else {
+        inputContent = [{ type: 'input_text', text: prompt }]
+      }
+
+      const respRes = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          input: [{ role: 'user', content: inputContent }],
+          text: { format: { type: 'json_object' } },
+        }),
+      })
+
+      if (fileIdToCleanup) {
+        fetch(`https://api.openai.com/v1/files/${fileIdToCleanup}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${openaiKey}` },
+        }).catch(() => { /* ignore */ })
+      }
+
+      if (!respRes.ok) {
+        const errText = await respRes.text()
+        return errorResponse(502, "Échec de l'analyse IA", errText)
+      }
+
+      const respJson = await respRes.json()
+      const rawText: string = respJson?.output?.[0]?.content?.[0]?.text ?? ''
+      if (!rawText) throw new Error('Réponse IA vide ou format inattendu')
+
+      let parsed: Record<string, unknown>
+      try {
+        parsed = JSON.parse(rawText)
+      } catch {
+        throw new Error(`Réponse IA non parsable: ${rawText.slice(0, 200)}`)
+      }
+
+      const rawItems = Array.isArray(parsed.items) ? parsed.items : []
+      const items = rawItems.map((raw) => {
+        const item = raw as Record<string, unknown>
+        return {
+          designation: String(item.designation ?? '').trim(),
+          quantity: Number(item.quantity) || 1,
+          unit_price: Number(item.unit_price) || 0,
+        }
+      }).filter(item => item.designation && item.quantity > 0)
+
+      if (items.length === 0) {
+        return errorResponse(422, "L'IA n'a détecté aucune ligne article exploitable")
+      }
+
+      return new Response(JSON.stringify({
+        draft: {
+          client: String(parsed.client ?? '').trim(),
+          items,
+          notes: String(parsed.notes ?? '').trim(),
+          confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),
+        },
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
     const file = form.get('file') as File | null

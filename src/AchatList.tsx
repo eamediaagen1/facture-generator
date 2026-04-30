@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Eye, Edit2, Trash2, ExternalLink,
   ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload, Sparkles,
 } from 'lucide-react';
+import { MetricCard, TableActionBtn } from './ui';
 import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
 import { getAchats, deleteAchat, deleteAchatFile, patchAchat } from './services/achatService';
 import AchatImportModal from './AchatImportModal';
@@ -129,11 +130,11 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-7xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-[1400px] mx-auto">
 
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-800">Achats</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Achats</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAIModal(true)}
@@ -160,26 +161,30 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
       </div>
 
         {/* ── Metrics ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             icon={<ShoppingCart className="w-5 h-5 text-slate-500" />}
+            iconBg="bg-slate-50"
             label="Total achats"
             value={String(metrics.total)}
           />
           <MetricCard
             icon={<TrendingDown className="w-5 h-5 text-blue-500" />}
+            iconBg="bg-blue-50"
             label="Total TTC achats"
             value={`${fmt(metrics.totalTTC)} DH`}
             valueClass="text-blue-700"
           />
           <MetricCard
             icon={<CheckCircle className="w-5 h-5 text-emerald-500" />}
+            iconBg="bg-emerald-50"
             label="TVA récupérable"
             value={`${fmt(metrics.totalTVA)} DH`}
             valueClass="text-emerald-700"
           />
           <MetricCard
             icon={<AlertCircle className="w-5 h-5 text-amber-500" />}
+            iconBg="bg-amber-50"
             label="Non payés (TTC)"
             value={`${fmt(metrics.unpaid)} DH`}
             valueClass="text-amber-700"
@@ -353,9 +358,9 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
                                 <ExternalLink className="w-4 h-4" />
                               </a>
                             )}
-                            <Btn title="Voir"      onClick={() => onView(a.id)}><Eye    className="w-4 h-4" /></Btn>
-                            <Btn title="Modifier"  onClick={() => onEdit(a.id)}><Edit2  className="w-4 h-4" /></Btn>
-                            <Btn title="Supprimer" onClick={() => handleDelete(a)} danger><Trash2 className="w-4 h-4" /></Btn>
+                            <TableActionBtn title="Voir"      onClick={() => onView(a.id)}><Eye    className="w-4 h-4" /></TableActionBtn>
+                            <TableActionBtn title="Modifier"  onClick={() => onEdit(a.id)}><Edit2  className="w-4 h-4" /></TableActionBtn>
+                            <TableActionBtn title="Supprimer" onClick={() => handleDelete(a)} danger><Trash2 className="w-4 h-4" /></TableActionBtn>
                           </div>
                         </td>
                       </tr>
@@ -478,9 +483,9 @@ function MobileAchatCard({
               <ExternalLink className="w-5 h-5" />
             </a>
           )}
-          <Btn title="Voir"      onClick={onView}><Eye    className="w-5 h-5" /></Btn>
-          <Btn title="Modifier"  onClick={onEdit}><Edit2  className="w-5 h-5" /></Btn>
-          <Btn title="Supprimer" onClick={onDelete} danger><Trash2 className="w-5 h-5" /></Btn>
+          <TableActionBtn title="Voir"      onClick={onView}><Eye    className="w-5 h-5" /></TableActionBtn>
+          <TableActionBtn title="Modifier"  onClick={onEdit}><Edit2  className="w-5 h-5" /></TableActionBtn>
+          <TableActionBtn title="Supprimer" onClick={onDelete} danger><Trash2 className="w-5 h-5" /></TableActionBtn>
         </div>
       </div>
     </div>
@@ -505,52 +510,3 @@ function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {
   );
 }
 
-// ── MetricCard ────────────────────────────────────────────────────────────────
-
-function MetricCard({
-  icon, label, value, valueClass,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-4 flex items-center gap-3">
-      <div className="shrink-0 w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
-        <p className={`text-base font-bold tracking-tight mt-0.5 truncate ${valueClass ?? 'text-slate-800'}`}>
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Btn ───────────────────────────────────────────────────────────────────────
-
-function Btn({
-  title, onClick, danger, children,
-}: {
-  title: string;
-  onClick: () => void;
-  danger?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className={`p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-lg transition-all ${
-        danger
-          ? 'text-slate-300 hover:text-red-500 hover:bg-red-50'
-          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

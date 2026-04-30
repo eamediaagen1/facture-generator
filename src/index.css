@@ -113,3 +113,20 @@
   }
 
 }
+
+/* ── PDF capture mode (applied via JS before html2canvas snapshot) ── */
+body.pdf-capturing .no-print {
+  display: none !important;
+}
+body.pdf-capturing .inv-field {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  resize: none !important;
+}
+body.pdf-capturing input[type="date"] {
+  display: none !important;
+}
+body.pdf-capturing .inv-date {
+  display: block !important;
+}

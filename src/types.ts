@@ -14,6 +14,7 @@ export type InvoiceStatus =
   | 'Livré';
 
 export type DocumentType = 'facture' | 'devis' | 'bon_livraison';
+export type InvoiceAIDocType = 'facture' | 'devis';
 
 export interface Invoice {
   id: string;
@@ -34,6 +35,16 @@ export interface Invoice {
   stampPos?: { x: number; y: number };
   signaturePos?: { x: number; y: number };
   signatureData?: string;
+  pdfPath?: string;
+}
+
+export interface InvoiceDraftPrefill {
+  client: string;
+  clientId?: string;
+  items: LineItem[];
+  sourceDocumentId?: string;
+  aiDraft?: boolean;
+  aiNotes?: string;
 }
 
 export interface Client {
@@ -89,6 +100,8 @@ export interface Achat {
   updated_at: string;
 }
 
+export type BankStatementStatus = 'needs_review' | 'validated';
+
 export interface BankStatement {
   id: string;
   user_id?: string;
@@ -101,6 +114,8 @@ export interface BankStatement {
   notes: string;
   file_url: string | null;
   file_path: string | null;
+  status?: BankStatementStatus;
+  raw_json?: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
@@ -108,7 +123,7 @@ export interface BankStatement {
 export type AppPage =
   | { name: 'dashboard' }
   | { name: 'list' }
-  | { name: 'new'; invoiceNumber: string; docType: DocumentType; prefill?: { client: string; clientId?: string; items: LineItem[]; sourceDocumentId?: string } }
+  | { name: 'new'; invoiceNumber: string; docType: DocumentType; prefill?: InvoiceDraftPrefill }
   | { name: 'edit'; invoiceId: string }
   | { name: 'view'; invoiceId: string; printOnLoad?: boolean }
   | { name: 'settings' }

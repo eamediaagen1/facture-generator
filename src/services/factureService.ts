@@ -30,6 +30,7 @@ function toInvoice(row: Record<string, unknown>): Invoice {
     stampPos:      ov.stampPos,
     signaturePos:  ov.signaturePos,
     signatureData: ov.signatureData,
+    pdfPath:       row.pdf_path as string | undefined,
   };
 }
 
@@ -50,6 +51,7 @@ function toRow(inv: Invoice) {
     total_ttc:  inv.totalTTC,
     status:        inv.status,
     document_type: inv.documentType,
+    created_at:    inv.createdAt,
     client_id:     inv.clientId ?? null,
     ...(inv.originDevisId    !== undefined ? { origin_devis_id:    inv.originDevisId }    : {}),
     ...(inv.sourceDocumentId !== undefined ? { source_document_id: inv.sourceDocumentId } : {}),
@@ -99,6 +101,15 @@ export async function updateStatus(id: string, status: InvoiceStatus): Promise<v
 
 export async function deleteFacture(id: string): Promise<void> {
   const { error } = await supabase.from('factures').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Requires: ALTER TABLE factures ADD COLUMN IF NOT EXISTS pdf_path TEXT;
+export async function updatePdfPath(id: string, pdfPath: string): Promise<void> {
+  const { error } = await supabase
+    .from('factures')
+    .update({ pdf_path: pdfPath })
+    .eq('id', id);
   if (error) throw error;
 }
 

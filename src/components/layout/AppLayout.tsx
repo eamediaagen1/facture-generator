@@ -48,12 +48,12 @@ export default function AppLayout({
     <div className="min-h-screen bg-slate-100">
 
       {/* ── Desktop sidebar ─────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-slate-200 fixed top-0 left-0 bottom-0 z-30 print:hidden">
+      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-200 fixed top-0 left-0 bottom-0 z-30 print:hidden">
 
         {/* Brand */}
         <div className="px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-violet-700 rounded-lg flex items-center justify-center shrink-0 shadow-sm shadow-violet-200">
               <FileText className="w-4 h-4 text-white" />
             </div>
             <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wide leading-tight">
@@ -70,10 +70,10 @@ export default function AppLayout({
               <button
                 key={key}
                 onClick={handlers[key]}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
                   isActive
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-slate-800 text-white font-semibold shadow-sm'
+                    : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -87,10 +87,10 @@ export default function AppLayout({
         <div className="px-3 py-3 border-t border-slate-100 space-y-0.5 shrink-0">
           <button
             onClick={onSettings}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
               active === 'settings'
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-slate-800 text-white font-semibold shadow-sm'
+                : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`}
           >
             <Settings className="w-4 h-4 shrink-0" />
@@ -107,13 +107,13 @@ export default function AppLayout({
       </aside>
 
       {/* ── Main content ────────────────────────────────────────── */}
-      <div className="lg:ml-56 flex flex-col min-h-screen">
+      <div className="lg:ml-72 flex flex-col min-h-screen">
 
         {/* Mobile top bar */}
         <header className="lg:hidden sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm print:hidden">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-slate-800 rounded-lg flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 bg-gradient-to-br from-violet-600 to-violet-700 rounded-lg flex items-center justify-center shrink-0 shadow-sm shadow-violet-200">
                 <FileText className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">

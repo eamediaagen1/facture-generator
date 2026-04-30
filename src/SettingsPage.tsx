@@ -168,9 +168,11 @@ export default function SettingsPage() {
   ] as const;
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-2xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-2xl mx-auto">
 
-      <h1 className="text-xl font-bold text-slate-800">Paramètres</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Paramètres</h1>
+      </div>
 
       {/* ── Factures ── */}
       <CounterSection
@@ -215,7 +217,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
           <Download className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-slate-800">
             Export de données
           </h2>
         </div>
@@ -245,7 +247,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
           <Database className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-slate-800">
             Sauvegarde JSON
           </h2>
         </div>
@@ -270,7 +272,7 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
           <Upload className="w-4 h-4 text-slate-400" />
-          <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-slate-800">
             Restaurer une sauvegarde
           </h2>
         </div>
@@ -380,9 +382,7 @@ function CounterSection({
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-slate-100">
-        <h2 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">
-          {title}
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-800">{title}</h2>
       </div>
 
       <div className="px-6 py-5 space-y-5">

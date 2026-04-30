@@ -13,7 +13,12 @@
       "Bash(supabase functions *)",
       "Bash(awk '{print $NF}')",
       "Bash(xargs -I {} basename {})",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node -e \"const j = require\\('/Users/apple/Downloads/invoicer/node_modules/jspdf'\\); console.log\\(Object.keys\\(j\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Read(//tmp/**)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: improve PDF generation capture and layout *)"
     ]
   }
 }

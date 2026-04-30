@@ -17,6 +17,8 @@ function toRow(s: Partial<BankStatement> & { id: string }) {
     notes:           s.notes           ?? '',
     file_url:        s.file_url        ?? null,
     file_path:       s.file_path       ?? null,
+    status:          s.status          ?? 'validated',
+    ...(s.raw_json !== undefined ? { raw_json: s.raw_json } : {}),
     updated_at:      new Date().toISOString(),
   };
 }
@@ -34,18 +36,20 @@ export async function getBankStatements(): Promise<BankStatement[]> {
 export async function upsertBankStatement(
   stmt: Partial<BankStatement> & { id: string },
 ): Promise<BankStatement> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const row = { ...toRow(stmt), ...(session?.user?.id ? { user_id: session.user.id } : {}) };
   const { data, error } = await supabase
     .from('bank_statements')
-    .upsert(toRow(stmt), { onConflict: 'id' })
+    .upsert(row, { onConflict: 'id' })
     .select()
     .single();
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return data as BankStatement;
 }
 
 export async function deleteBankStatement(id: string): Promise<void> {
   const { error } = await supabase.from('bank_statements').delete().eq('id', id);
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export function validateStatementFile(file: File): string | null {

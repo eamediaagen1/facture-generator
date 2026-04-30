@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Eye, Edit2, Trash2,
   Users, TrendingUp, AlertCircle, UserCheck,
 } from 'lucide-react';
+import { MetricCard, TableActionBtn } from './ui';
 import type { Client, Invoice } from './types';
 import { getClients, deleteClient } from './services/clientService';
 import { getFactures } from './services/factureService';
@@ -78,11 +79,11 @@ export default function ClientList({ onNew, onEdit, onView }: Props) {
   }
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-5xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-[1400px] mx-auto">
 
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-800">Clients</h1>
+        <h1 className="text-2xl font-bold text-slate-800">Clients</h1>
         <button
           onClick={onNew}
           className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 min-h-[44px] bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
@@ -93,11 +94,11 @@ export default function ClientList({ onNew, onEdit, onView }: Props) {
       </div>
 
       {/* ── Metrics ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MetricCard icon={<Users className="w-5 h-5 text-slate-500" />}        label="Total clients"    value={String(clients.length)} />
-          <MetricCard icon={<UserCheck className="w-5 h-5 text-violet-500" />}   label="Avec factures"    value={String(Object.keys(clientMetrics).length)} valueClass="text-violet-700" />
-          <MetricCard icon={<TrendingUp className="w-5 h-5 text-emerald-500" />} label="CA encaissé"      value={`${fmt(totals.revenue)} DH`} valueClass="text-emerald-700" />
-          <MetricCard icon={<AlertCircle className="w-5 h-5 text-amber-500" />}  label="Impayés clients"  value={`${fmt(totals.unpaid)} DH`}  valueClass="text-amber-700" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard icon={<Users className="w-5 h-5 text-slate-500" />}        iconBg="bg-slate-50"   label="Total clients"   value={String(clients.length)} />
+          <MetricCard icon={<UserCheck className="w-5 h-5 text-violet-500" />}   iconBg="bg-violet-50"  label="Avec factures"   value={String(Object.keys(clientMetrics).length)} valueClass="text-violet-700" />
+          <MetricCard icon={<TrendingUp className="w-5 h-5 text-emerald-500" />} iconBg="bg-emerald-50" label="CA encaissé"     value={`${fmt(totals.revenue)} DH`} valueClass="text-emerald-700" />
+          <MetricCard icon={<AlertCircle className="w-5 h-5 text-amber-500" />}  iconBg="bg-amber-50"   label="Impayés clients" value={`${fmt(totals.unpaid)} DH`}  valueClass="text-amber-700" />
         </div>
 
         {/* ── Search ── */}
@@ -176,9 +177,9 @@ export default function ClientList({ onNew, onEdit, onView }: Props) {
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <Btn title="Voir"      onClick={() => onView(c.id)}><Eye   className="w-4 h-4" /></Btn>
-                              <Btn title="Modifier"  onClick={() => onEdit(c.id)}><Edit2 className="w-4 h-4" /></Btn>
-                              <Btn title="Supprimer" onClick={() => handleDelete(c)} danger><Trash2 className="w-4 h-4" /></Btn>
+                              <TableActionBtn title="Voir"      onClick={() => onView(c.id)}><Eye   className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Modifier"  onClick={() => onEdit(c.id)}><Edit2 className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Supprimer" onClick={() => handleDelete(c)} danger><Trash2 className="w-4 h-4" /></TableActionBtn>
                             </div>
                           </td>
                         </tr>
@@ -200,9 +201,9 @@ export default function ClientList({ onNew, onEdit, onView }: Props) {
                           <p className="text-xs text-slate-400 mt-0.5">{c.city || c.ice || '—'}</p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Btn title="Voir"      onClick={() => onView(c.id)}><Eye   className="w-5 h-5" /></Btn>
-                          <Btn title="Modifier"  onClick={() => onEdit(c.id)}><Edit2 className="w-5 h-5" /></Btn>
-                          <Btn title="Supprimer" onClick={() => handleDelete(c)} danger><Trash2 className="w-5 h-5" /></Btn>
+                          <TableActionBtn title="Voir"      onClick={() => onView(c.id)}><Eye   className="w-5 h-5" /></TableActionBtn>
+                          <TableActionBtn title="Modifier"  onClick={() => onEdit(c.id)}><Edit2 className="w-5 h-5" /></TableActionBtn>
+                          <TableActionBtn title="Supprimer" onClick={() => handleDelete(c)} danger><Trash2 className="w-5 h-5" /></TableActionBtn>
                         </div>
                       </div>
                       <div className="flex gap-4">
@@ -236,29 +237,3 @@ export default function ClientList({ onNew, onEdit, onView }: Props) {
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-function MetricCard({ icon, label, value, valueClass }: { icon: ReactNode; label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-4 flex items-center gap-3">
-      <div className="shrink-0 w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
-        <p className={`text-base font-bold tracking-tight mt-0.5 truncate ${valueClass ?? 'text-slate-800'}`}>{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function Btn({ title, onClick, danger, children }: { title: string; onClick: () => void; danger?: boolean; children: ReactNode }) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      className={`p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-lg transition-all ${
-        danger ? 'text-slate-300 hover:text-red-500 hover:bg-red-50' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

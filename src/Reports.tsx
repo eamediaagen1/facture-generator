@@ -174,10 +174,12 @@ export default function Reports() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 w-full max-w-[1400px] mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-[1400px] mx-auto">
 
       {/* Header */}
-      <h1 className="text-xl font-bold text-slate-800">Rapports financiers</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Rapports financiers</h1>
+      </div>
 
       {/* Period filter */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
@@ -442,10 +444,10 @@ function MetricCard({ label, value, sub, color }: {
   label: string; value: string; sub: string; color: MetricColor;
 }) {
   return (
-    <div className={`rounded-xl border p-5 ${COLOR_MAP[color]}`}>
-      <p className="text-xs font-semibold uppercase tracking-wider opacity-70">{label}</p>
-      <p className="text-lg sm:text-xl font-bold mt-1 break-words leading-tight tabular-nums">{value}</p>
-      <p className="text-xs mt-1 opacity-60">{sub}</p>
+    <div className={`rounded-xl border px-4 sm:px-5 py-4 sm:py-5 ${COLOR_MAP[color]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{label}</p>
+      <p className="text-base sm:text-lg font-bold mt-1 break-words leading-tight tabular-nums">{value}</p>
+      <p className="text-xs mt-0.5 opacity-60">{sub}</p>
     </div>
   );
 }

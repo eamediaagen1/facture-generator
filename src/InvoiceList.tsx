@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import type { ReactNode } from 'react';
 import ExportModal from './ExportModal';
 import {
   Plus, Search, Eye, Edit2, Download, Trash2,
@@ -8,8 +7,10 @@ import {
   Receipt, TrendingUp, CheckCircle, Clock,
   Truck,
 } from 'lucide-react';
+import { MetricCard, TableActionBtn } from './ui';
 import type { Invoice, InvoiceStatus, DocumentType } from './types';
 import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis, blExistsForSource } from './services/factureService';
+import { downloadInvoicePdf } from './services/pdfService';
 import { nextInvoiceNumber } from './services/numberingService';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -115,7 +116,23 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
     };
   }, [invoices]);
 
-  const [blCreating, setBlCreating] = useState(false);
+  const [blCreating,      setBlCreating]      = useState(false);
+  const [downloadingId,   setDownloadingId]   = useState<string | null>(null);
+
+  async function handleDownload(inv: Invoice) {
+    if (inv.pdfPath) {
+      setDownloadingId(inv.id);
+      try {
+        await downloadInvoicePdf(inv.pdfPath, `${inv.number}.pdf`);
+        return;
+      } catch {
+        // fall through to print-based fallback
+      } finally {
+        setDownloadingId(null);
+      }
+    }
+    onPrint(inv.id);
+  }
 
   async function handleCreateBL(inv: Invoice) {
     setBlCreating(true);
@@ -145,6 +162,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
       setNewLoading(false);
     }
   }
+
 
   async function handleDelete(id: string) {
     if (!window.confirm('Supprimer cette facture définitivement ?')) return;
@@ -188,12 +206,12 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
   }
 
   return (
-    <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 max-w-5xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-[1400px] mx-auto">
 
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-slate-800">Factures &amp; Devis</h1>
-        <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-slate-800">Factures &amp; Devis</h1>
+        <div className="flex flex-wrap items-center gap-2">
           <NewDocMenu onNew={handleNew} loading={newLoading} />
           <button
             onClick={() => setShowExport(true)}
@@ -212,26 +230,30 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
       )}
 
         {/* ── Metrics ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             icon={<Receipt className="w-5 h-5 text-slate-500" />}
+            iconBg="bg-slate-50"
             label="Total factures"
             value={String(metrics.total)}
           />
           <MetricCard
             icon={<TrendingUp className="w-5 h-5 text-violet-500" />}
+            iconBg="bg-violet-50"
             label="Chiffre d'affaires"
             value={`${fmt(metrics.totalTTC)} DH`}
             valueClass="text-violet-700"
           />
           <MetricCard
             icon={<CheckCircle className="w-5 h-5 text-emerald-500" />}
+            iconBg="bg-emerald-50"
             label="Payées"
             value={String(metrics.payees)}
             valueClass="text-emerald-700"
           />
           <MetricCard
             icon={<Clock className="w-5 h-5 text-amber-500" />}
+            iconBg="bg-amber-50"
             label="En attente"
             value={String(metrics.enAttente)}
             valueClass="text-amber-700"
@@ -350,17 +372,17 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              <Btn title="Voir"            onClick={() => onView(inv.id)}>  <Eye      className="w-4 h-4" /></Btn>
-                              <Btn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2    className="w-4 h-4" /></Btn>
-                              <Btn title="Télécharger PDF" onClick={() => onPrint(inv.id)}> <Download className="w-4 h-4" /></Btn>
+                              <TableActionBtn title="Voir"            onClick={() => onView(inv.id)}>  <Eye      className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Modifier"        onClick={() => onEdit(inv.id)}>  <Edit2    className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Télécharger PDF" onClick={() => handleDownload(inv)} disabled={downloadingId === inv.id}> <Download className="w-4 h-4" /></TableActionBtn>
                               {inv.documentType !== 'bon_livraison' && (
-                                <Btn title="Créer BL" onClick={() => handleCreateBL(inv)} disabled={blCreating}>
+                                <TableActionBtn title="Créer BL" onClick={() => handleCreateBL(inv)} disabled={blCreating}>
                                   <Truck className="w-4 h-4" />
-                                </Btn>
+                                </TableActionBtn>
                               )}
-                              <Btn title="Supprimer" onClick={() => handleDelete(inv.id)} danger>
+                              <TableActionBtn title="Supprimer" onClick={() => handleDelete(inv.id)} danger>
                                 <Trash2 className="w-4 h-4" />
-                              </Btn>
+                              </TableActionBtn>
                             </div>
                           </td>
                         </tr>
@@ -378,7 +400,8 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
                     inv={inv}
                     onView={() => onView(inv.id)}
                     onEdit={() => onEdit(inv.id)}
-                    onPrint={() => onPrint(inv.id)}
+                    onDownload={() => handleDownload(inv)}
+                    downloadLoading={downloadingId === inv.id}
                     onDelete={() => handleDelete(inv.id)}
                     onStatusChange={s => handleStatusChange(inv.id, s)}
                     onCreateBL={() => handleCreateBL(inv)}
@@ -404,12 +427,13 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
 // ── Mobile invoice card ───────────────────────────────────────────────────────
 
 function MobileInvoiceCard({
-  inv, onView, onEdit, onPrint, onDelete, onStatusChange, onCreateBL, blCreating,
+  inv, onView, onEdit, onDownload, downloadLoading, onDelete, onStatusChange, onCreateBL, blCreating,
 }: {
   inv: Invoice;
   onView: () => void;
   onEdit: () => void;
-  onPrint: () => void;
+  onDownload: () => void;
+  downloadLoading: boolean;
   onDelete: () => void;
   onStatusChange: (s: InvoiceStatus) => void;
   onCreateBL: () => void;
@@ -438,45 +462,21 @@ function MobileInvoiceCard({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <Btn title="Voir"            onClick={onView}>  <Eye      className="w-5 h-5" /></Btn>
-          <Btn title="Modifier"        onClick={onEdit}>  <Edit2    className="w-5 h-5" /></Btn>
-          <Btn title="Télécharger PDF" onClick={onPrint}> <Download className="w-5 h-5" /></Btn>
+          <TableActionBtn title="Voir"            onClick={onView}>  <Eye      className="w-5 h-5" /></TableActionBtn>
+          <TableActionBtn title="Modifier"        onClick={onEdit}>  <Edit2    className="w-5 h-5" /></TableActionBtn>
+          <TableActionBtn title="Télécharger PDF" onClick={onDownload} disabled={downloadLoading}> <Download className="w-5 h-5" /></TableActionBtn>
           {inv.documentType !== 'bon_livraison' && (
-            <Btn title="Créer BL" onClick={onCreateBL} disabled={blCreating}>
+            <TableActionBtn title="Créer BL" onClick={onCreateBL} disabled={blCreating}>
               <Truck className="w-5 h-5" />
-            </Btn>
+            </TableActionBtn>
           )}
-          <Btn title="Supprimer" onClick={onDelete} danger><Trash2 className="w-5 h-5" /></Btn>
+          <TableActionBtn title="Supprimer" onClick={onDelete} danger><Trash2 className="w-5 h-5" /></TableActionBtn>
         </div>
       </div>
     </div>
   );
 }
 
-// ── MetricCard ────────────────────────────────────────────────────────────────
-
-function MetricCard({
-  icon, label, value, valueClass,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-4 flex items-center gap-3">
-      <div className="shrink-0 w-9 h-9 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
-        <p className={`text-base font-bold tracking-tight mt-0.5 truncate ${valueClass ?? 'text-slate-800'}`}>
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ── StatusBadge (portal-based, safe inside overflow:hidden) ──────────────────
 
@@ -538,32 +538,6 @@ function StatusBadge({
   );
 }
 
-// ── Action button ─────────────────────────────────────────────────────────────
-
-function Btn({
-  title, onClick, danger, disabled, children,
-}: {
-  title: string;
-  onClick: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      title={title}
-      onClick={onClick}
-      disabled={disabled}
-      className={`p-2 sm:p-1.5 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center rounded-lg transition-all disabled:opacity-40 disabled:pointer-events-none ${
-        danger
-          ? 'text-slate-300 hover:text-red-500 hover:bg-red-50'
-          : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
 
 // ── New document dropdown ─────────────────────────────────────────────────────
 
