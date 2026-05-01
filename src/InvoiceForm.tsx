@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut, Stamp, PenLine, X, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut, Stamp, X, AlertTriangle } from 'lucide-react';
 import { numberToFrenchWords } from './numberToWords';
 import type { Invoice, InvoiceStatus, LineItem, DocumentType, Client, InvoiceDraftPrefill } from './types';
 import { getFacture, upsertFacture, updatePdfPath } from './services/factureService';
@@ -141,20 +141,8 @@ export default function InvoiceForm({
   const [stampVisible, setStampVisible] = useState(false);
   const [stampPos,     setStampPos]     = useState({ x: 70, y: 78 });
 
-  // Signature overlay
-  const [sigVisible,   setSigVisible]   = useState(false);
-  const [sigPos,       setSigPos]       = useState({ x: 15, y: 80 });
-  const [sigData,      setSigData]      = useState<string | null>(null);
-
-  // Signature modal
-  const [showSigModal, setShowSigModal] = useState(false);
-  const [sigTab,       setSigTab]       = useState<'draw' | 'upload'>('draw');
-  const canvasRef   = useRef<HTMLCanvasElement>(null);
-  const isDrawing   = useRef(false);
-  const lastPt      = useRef({ x: 0, y: 0 });
-
   // Drag
-  const [dragging,  setDragging]  = useState<'stamp' | 'sig' | null>(null);
+  const [dragging,  setDragging]  = useState<'stamp' | null>(null);
   const pageRef     = useRef<HTMLDivElement>(null);
   const printRef    = useRef<HTMLDivElement>(null);
   const dragStart   = useRef<{ mx: number; my: number; ox: number; oy: number } | null>(null);
@@ -187,7 +175,6 @@ export default function InvoiceForm({
         setOriginDevisId(inv.originDevisId);
         setCreatedAt(inv.createdAt);
         if (inv.stampPos)     { setStampPos(inv.stampPos); setStampVisible(true); }
-        if (inv.signatureData){ setSigData(inv.signatureData); setSigPos(inv.signaturePos ?? { x: 15, y: 80 }); setSigVisible(true); }
       }
       setFetchLoading(false);
     });
@@ -217,7 +204,6 @@ export default function InvoiceForm({
       const nx = Math.max(5, Math.min(95, dragStart.current.ox + dx));
       const ny = Math.max(2, Math.min(98, dragStart.current.oy + dy));
       if (dragging === 'stamp') setStampPos({ x: nx, y: ny });
-      else setSigPos({ x: nx, y: ny });
     }
     function onMoveTouch(e: TouchEvent) {
       if (!dragStart.current || !pageRef.current || !e.touches[0]) return;
@@ -227,7 +213,6 @@ export default function InvoiceForm({
       const nx = Math.max(5, Math.min(95, dragStart.current.ox + dx));
       const ny = Math.max(2, Math.min(98, dragStart.current.oy + dy));
       if (dragging === 'stamp') setStampPos({ x: nx, y: ny });
-      else setSigPos({ x: nx, y: ny });
     }
     function onUp() { setDragging(null); dragStart.current = null; }
     window.addEventListener('mousemove', onMove);
@@ -247,17 +232,17 @@ export default function InvoiceForm({
     window.addEventListener('afterprint', () => { document.title = 'Facture'; }, { once: true });
   }
 
-  function startDrag(e: React.MouseEvent, which: 'stamp' | 'sig') {
+  function startDrag(e: React.MouseEvent, which: 'stamp') {
     e.preventDefault();
-    const pos = which === 'stamp' ? stampPos : sigPos;
+    const pos = which === 'stamp' ? stampPos : stampPos;
     dragStart.current = { mx: e.clientX, my: e.clientY, ox: pos.x, oy: pos.y };
     setDragging(which);
   }
 
-  function startDragTouch(e: React.TouchEvent, which: 'stamp' | 'sig') {
+  function startDragTouch(e: React.TouchEvent, which: 'stamp') {
     const t = e.touches[0];
     if (!t) return;
-    const pos = which === 'stamp' ? stampPos : sigPos;
+    const pos = which === 'stamp' ? stampPos : stampPos;
     dragStart.current = { mx: t.clientX, my: t.clientY, ox: pos.x, oy: pos.y };
     setDragging(which);
   }
@@ -277,43 +262,6 @@ export default function InvoiceForm({
     }
   }
 
-  // Canvas drawing helpers
-  function canvasDown(e: React.MouseEvent<HTMLCanvasElement>) {
-    isDrawing.current = true;
-    const r = e.currentTarget.getBoundingClientRect();
-    lastPt.current = { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-  function canvasDraw(e: React.MouseEvent<HTMLCanvasElement>) {
-    if (!isDrawing.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d')!;
-    const r = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1e293b';
-    ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(x, y); ctx.stroke();
-    lastPt.current = { x, y };
-  }
-  function canvasUp() { isDrawing.current = false; }
-  function clearCanvas() {
-    if (!canvasRef.current) return;
-    canvasRef.current.getContext('2d')!.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-  }
-  function confirmDrawnSig() {
-    if (!canvasRef.current) return;
-    setSigData(canvasRef.current.toDataURL('image/png'));
-    setSigVisible(true); setSigPos({ x: 15, y: 80 });
-    setShowSigModal(false);
-  }
-  function handleSigUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setSigData(ev.target?.result as string);
-      setSigVisible(true); setSigPos({ x: 15, y: 80 });
-      setShowSigModal(false);
-    };
-    reader.readAsDataURL(file);
-  }
 
   const addItem = useCallback(() => {
     setItems(p => [...p, { id: uid(), designation: '', quantity: 1, unitPrice: 0 }]);
@@ -368,8 +316,6 @@ export default function InvoiceForm({
         sourceDocumentId: sourceDocumentId,
         originDevisId:    originDevisId,
         stampPos:         stampVisible ? stampPos : undefined,
-        signaturePos:     sigVisible && sigData ? sigPos : undefined,
-        signatureData:    sigVisible && sigData ? sigData : undefined,
       };
 
       // 1. Persist invoice data
@@ -431,7 +377,6 @@ export default function InvoiceForm({
     const x = Math.max(5, Math.min(95, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.max(2, Math.min(98, ((e.clientY - rect.top)  / A4_H_PX)   * 100));
     if (stampVisible) setStampPos({ x, y });
-    else if (sigVisible) setSigPos({ x, y });
   }
 
   if (fetchLoading) {
@@ -485,7 +430,7 @@ export default function InvoiceForm({
         style={ro ? { width: `${A4_W_PX}px`, height: `${A4_H_PX}px`, boxSizing: 'border-box' } : undefined}
         className={ro
           ? 'relative bg-white flex flex-col invoice-page'
-          : `relative bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page${!readOnly && (stampVisible || sigVisible) ? ' cursor-crosshair' : ''}`
+          : `relative bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page${!readOnly && stampVisible ? ' cursor-crosshair' : ''}`
         }
       >
 
@@ -768,25 +713,6 @@ export default function InvoiceForm({
           </div>
         )}
 
-        {/* ── Signature overlay ── */}
-        {sigVisible && sigData && (
-          <div
-            data-overlay
-            className={`absolute select-none z-10 print:hidden ${!ro && !readOnly ? 'cursor-move' : ''}`}
-            style={{ left: `${sigPos.x}%`, top: `${sigPos.y}%`, transform: 'translate(-50%, -50%)' }}
-            onMouseDown={!ro && !readOnly ? e => startDrag(e, 'sig') : undefined}
-            onTouchStart={!ro && !readOnly ? e => startDragTouch(e, 'sig') : undefined}
-          >
-            <img src={sigData} alt="Signature" className="h-20 max-w-[160px] object-contain pointer-events-none" />
-            {!ro && !readOnly && (
-              <button
-                className="no-print absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow"
-                onClick={e => { e.stopPropagation(); setSigVisible(false); setSigData(null); }}
-              ><X className="w-3 h-3" /></button>
-            )}
-          </div>
-        )}
-
         {/* ── Footer ── */}
         <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-2 invoice-footer shrink-0">
           <div className="flex justify-center items-center gap-4 sm:gap-6 print:gap-6 mb-1 flex-wrap sm:flex-nowrap print:flex-nowrap">
@@ -859,13 +785,6 @@ export default function InvoiceForm({
                     <Stamp className="w-4 h-4" />
                   </button>
                 )}
-                <button
-                  onClick={() => { setSigTab('draw'); setShowSigModal(true); }}
-                  title={sigVisible ? 'Modifier la signature' : 'Ajouter une signature'}
-                  className={`p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border transition-all ${sigVisible ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                >
-                  <PenLine className="w-4 h-4" />
-                </button>
               </>
             )}
             <button
@@ -908,14 +827,6 @@ export default function InvoiceForm({
                     Cachet
                   </button>
                 )}
-                <button
-                  onClick={() => { setSigTab('draw'); setShowSigModal(true); }}
-                  title={sigVisible ? 'Modifier la signature' : 'Ajouter une signature'}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border transition-all shadow-sm ${sigVisible ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                >
-                  <PenLine className="w-4 h-4" />
-                  Signature
-                </button>
                 <button
                   onClick={handleSaveClick}
                   disabled={saving}
@@ -981,62 +892,6 @@ export default function InvoiceForm({
         {renderInvoiceLayout(true, printRef)}
       </div>
 
-
-      {/* ── Signature modal ── */}
-      {showSigModal && (
-        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
-              <h2 className="font-semibold text-slate-800 text-sm">Ajouter une signature</h2>
-              <button onClick={() => setShowSigModal(false)} className="text-slate-400 hover:text-slate-700 transition-colors"><X className="w-5 h-5" /></button>
-            </div>
-            {/* Tabs */}
-            <div className="flex border-b border-slate-100 px-5">
-              <button
-                onClick={() => setSigTab('draw')}
-                className={`py-2.5 px-1 mr-4 text-sm font-medium border-b-2 transition-colors ${sigTab === 'draw' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >Dessiner</button>
-              <button
-                onClick={() => setSigTab('upload')}
-                className={`py-2.5 px-1 text-sm font-medium border-b-2 transition-colors ${sigTab === 'upload' ? 'border-slate-800 text-slate-800' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
-              >Importer</button>
-            </div>
-            <div className="p-5">
-              {sigTab === 'draw' ? (
-                <>
-                  <p className="text-xs text-slate-500 mb-3">Dessinez votre signature dans la zone ci-dessous :</p>
-                  <canvas
-                    ref={canvasRef}
-                    width={380} height={140}
-                    className="w-full border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 cursor-crosshair touch-none"
-                    onMouseDown={canvasDown}
-                    onMouseMove={canvasDraw}
-                    onMouseUp={canvasUp}
-                    onMouseLeave={canvasUp}
-                  />
-                  <button onClick={clearCanvas} className="mt-2 text-xs text-slate-400 hover:text-slate-600 transition-colors">Effacer</button>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={() => setShowSigModal(false)} className="flex-1 py-2.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Annuler</button>
-                    <button onClick={confirmDrawnSig} className="flex-1 py-2.5 text-sm bg-slate-800 hover:bg-slate-900 text-white rounded-lg transition-colors font-medium">Confirmer</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-slate-500 mb-3">Importez une image de signature (PNG transparent recommandé) :</p>
-                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
-                    <PenLine className="w-6 h-6 text-slate-400 mb-2" />
-                    <span className="text-xs text-slate-500">Cliquez pour choisir un fichier</span>
-                    <input type="file" accept="image/*" className="sr-only" onChange={handleSigUpload} />
-                  </label>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={() => setShowSigModal(false)} className="flex-1 py-2.5 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">Annuler</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Email confirmation modal ── */}
       {showEmailConfirm && (
