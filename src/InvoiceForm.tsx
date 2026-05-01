@@ -520,7 +520,7 @@ export default function InvoiceForm({
         <div className={`invoice-body ${ro ? 'grow shrink-0' : 'flex-1 min-h-0'}`}>
 
           {/* ── Date & Client ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-5 sm:py-6 print:py-6 border-b border-slate-200">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 print:py-5 border-b border-slate-200">
             <div className="flex flex-col sm:flex-row print:flex-row gap-8 sm:gap-20 print:gap-20 justify-between items-start">
               {/* ── Left: Date ── */}
               <div className="flex-shrink-0">
@@ -612,7 +612,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Spacing before articles ── */}
-          <div className="h-4 sm:h-6 print:h-6 bg-white" />
+          <div className="h-2 sm:h-3 print:h-3 bg-white" />
 
           {/* ── Line Items ── */}
           <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200">
@@ -674,11 +674,11 @@ export default function InvoiceForm({
                   ))}
                   {Array.from({ length: placeholders }).map((_, i) => (
                     <tr key={`ph-${i}`}>
-                      <td className="px-3 py-2.5 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-2 py-2.5 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-2 py-2.5 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-3 py-2.5 border-b border-slate-100">&nbsp;</td>
-                      {!ro && !readOnly && <td className="px-1 py-2.5 border-b border-slate-100 no-print" />}
+                      <td className="px-3 py-1.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-2 py-1.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-2 py-1.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-3 py-1.5 border-b border-slate-100">&nbsp;</td>
+                      {!ro && !readOnly && <td className="px-1 py-1.5 border-b border-slate-100 no-print" />}
                     </tr>
                   ))}
                 </tbody>
@@ -715,14 +715,14 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-5 sm:py-7 print:py-7 bg-slate-50/50 border-t border-slate-200">
+          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 print:py-5 bg-slate-50/50 border-t border-slate-200">
             <div className="flex justify-end">
               <div className="w-full sm:w-64 print:w-64">
-                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-200">
                   <span className="text-[10px] sm:text-xs print:text-xs font-semibold text-slate-700 uppercase tracking-[0.04em]">Total H.T.</span>
                   <span className="text-xs sm:text-sm print:text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-200">
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-200">
                   <span className="text-[10px] sm:text-xs print:text-xs font-semibold text-slate-700 uppercase tracking-[0.04em]">TVA ({tvaRate}%)</span>
                   <span className="text-xs sm:text-sm print:text-sm font-semibold text-slate-800">{fmtNum(tvaAmount)} DH</span>
                 </div>
@@ -735,11 +735,11 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Amount in words ── */}
-          <div className="amount-section px-4 sm:px-8 print:px-8 py-5 sm:py-6 print:py-6 border-t border-slate-200">
-            <p className="text-[9px] sm:text-[10px] print:text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-3">
+          <div className="amount-section px-4 sm:px-8 print:px-8 py-4 sm:py-5 print:py-5 border-t border-slate-200">
+            <p className="text-[9px] sm:text-[10px] print:text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-2">
               Arreter la presente facture a la somme de :
             </p>
-            <p className="text-xs sm:text-sm print:text-sm text-slate-800 font-medium bg-slate-50 px-4 py-3 rounded border border-slate-200 italic leading-relaxed">
+            <p className="text-xs sm:text-sm print:text-sm text-slate-800 font-medium bg-slate-50 px-4 py-2.5 rounded border border-slate-200 italic leading-relaxed">
               {totalInWords}
             </p>
           </div>

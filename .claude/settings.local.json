@@ -21,7 +21,8 @@
       "Bash(git commit -m 'fix: improve PDF generation capture and layout *)",
       "Bash(git commit -m 'fix: set explicit A4 dimensions on invoice element for PDF capture *)",
       "Bash(git commit -m 'fix: show invoice number in both PDF preview and saved PDF *)",
-      "Bash(git commit -m 'improve: enhance PDF layout spacing and readability *)"
+      "Bash(git commit -m 'improve: enhance PDF layout spacing and readability *)",
+      "Bash(git commit -m 'fix: compact PDF preview layout spacing for cleaner appearance *)"
     ]
   }
 }
