@@ -501,7 +501,7 @@ export default function InvoiceForm({
             <div className="flex-shrink-0">
               <div className="bg-slate-900 rounded-lg px-5 sm:px-5 print:px-5 py-3 sm:py-3 print:py-3 text-center shadow-md">
                 <p className="text-[10px] sm:text-[10px] print:text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">{docType === 'bon_livraison' ? 'BON DE LIVRAISON' : docType === 'devis' ? 'DEVIS' : 'FACTURE'}</p>
-                {readOnly ? (
+                {ro || readOnly ? (
                   <p className="text-white font-bold text-base sm:text-lg print:text-lg tracking-wide leading-tight">{invoiceNum}</p>
                 ) : (
                   <input
