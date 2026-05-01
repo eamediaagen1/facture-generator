@@ -758,7 +758,7 @@ export default function InvoiceForm({
             onMouseDown={!ro && !readOnly ? e => startDrag(e, 'stamp') : undefined}
             onTouchStart={!ro && !readOnly ? e => startDragTouch(e, 'stamp') : undefined}
           >
-            <img src={STAMP_URL} alt="Cachet" style={{ width: `${STAMP_SIZE_PX}px`, height: `${STAMP_SIZE_PX}px` }} className="object-contain pointer-events-none opacity-85 drop-shadow-lg" />
+            <img src={STAMP_URL} alt="Cachet" style={{ width: `${STAMP_SIZE_PX}px`, height: `${STAMP_SIZE_PX}px` }} className="max-w-[140px] max-h-[90px] object-contain pointer-events-none opacity-85 drop-shadow-lg print:max-w-[120px] print:max-h-[80px]" />
             {!ro && !readOnly && (
               <button
                 className="no-print absolute -top-3 -right-3 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow-md"
@@ -772,7 +772,7 @@ export default function InvoiceForm({
         {sigVisible && sigData && (
           <div
             data-overlay
-            className={`absolute select-none z-10 ${!ro && !readOnly ? 'cursor-move' : ''}`}
+            className={`absolute select-none z-10 print:hidden ${!ro && !readOnly ? 'cursor-move' : ''}`}
             style={{ left: `${sigPos.x}%`, top: `${sigPos.y}%`, transform: 'translate(-50%, -50%)' }}
             onMouseDown={!ro && !readOnly ? e => startDrag(e, 'sig') : undefined}
             onTouchStart={!ro && !readOnly ? e => startDragTouch(e, 'sig') : undefined}
@@ -789,19 +789,21 @@ export default function InvoiceForm({
 
         {/* ── Footer ── */}
         <div className="border-t border-slate-500 px-4 sm:px-8 print:px-8 py-2 invoice-footer shrink-0">
-          <div className="flex justify-center items-center gap-3 sm:gap-4 print:gap-4 mb-0.5 flex-wrap sm:flex-nowrap print:flex-nowrap">
-            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] print:text-[11px]">
-              <span className="font-semibold text-slate-700">{COMPANY.address}</span>
+          <div className="flex justify-center items-center gap-4 sm:gap-6 print:gap-6 mb-1 flex-wrap sm:flex-nowrap print:flex-nowrap">
+            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] print:text-[11px] text-slate-700">
+              <span className="font-medium">Adresse:</span>
+              <span className="font-normal">{COMPANY.address}</span>
             </div>
             <span className="text-slate-300 text-[8px]">•</span>
-            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] print:text-[11px]">
-              <span className="font-semibold text-slate-700">{COMPANY.gsm}</span>
+            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] print:text-[11px] text-slate-700">
+              <span className="font-medium">GSM:</span>
+              <span className="font-normal">{COMPANY.gsm}</span>
             </div>
           </div>
           <div className="text-center text-[9px] sm:text-[10px] print:text-[10px] text-slate-600 flex flex-wrap justify-center gap-2 sm:gap-3 print:gap-3">
             {([['ICE', COMPANY.ice], ['RC', COMPANY.rc], ['IF', COMPANY.if], ['Patente', COMPANY.patente], ['CNSS', COMPANY.CNSS]] as [string,string][]).map(([label, value], idx) => (
               <span key={label}>
-                <span className="font-semibold">{label}:</span> {value}{idx < 4 ? ' •' : ''}
+                <span className="font-medium">{label}:</span> {value}{idx < 4 ? ' •' : ''}
               </span>
             ))}
           </div>
