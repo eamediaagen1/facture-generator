@@ -18,7 +18,8 @@
       "Bash(node -e ' *)",
       "Read(//tmp/**)",
       "Bash(git add *)",
-      "Bash(git commit -m 'fix: improve PDF generation capture and layout *)"
+      "Bash(git commit -m 'fix: improve PDF generation capture and layout *)",
+      "Bash(git commit -m 'fix: set explicit A4 dimensions on invoice element for PDF capture *)"
     ]
   }
 }

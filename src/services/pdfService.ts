@@ -33,23 +33,36 @@ export async function captureInvoiceAsPdf(printElement: HTMLElement): Promise<Bl
   // Frame 2: layout and paint have settled.
   await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
-  // Temporarily force explicit dimensions on the element and ensure no parent clips
-  const parent = printElement.parentElement as HTMLElement;
-  const originalParentOverflow = parent?.style.overflow;
-  const originalElementWidth = printElement.style.width;
-  const originalElementHeight = printElement.style.height;
+  // ── DEBUG: Log element before capture ──
+  const rect = printElement.getBoundingClientRect();
+  const computedStyle = window.getComputedStyle(printElement);
+  console.log('=== PDF CAPTURE DEBUG ===');
+  console.log('Element className:', printElement.className);
+  console.log('Element id:', printElement.id);
+  console.log('getBoundingClientRect():', { width: rect.width, height: rect.height, top: rect.top, left: rect.left });
+  console.log('scrollWidth/scrollHeight:', { scrollWidth: printElement.scrollWidth, scrollHeight: printElement.scrollHeight });
+  console.log('clientWidth/clientHeight:', { clientWidth: printElement.clientWidth, clientHeight: printElement.clientHeight });
+  console.log('offsetWidth/offsetHeight:', { offsetWidth: printElement.offsetWidth, offsetHeight: printElement.offsetHeight });
+  console.log('Computed style width:', computedStyle.width);
+  console.log('Computed style height:', computedStyle.height);
+  console.log('Computed style overflow:', computedStyle.overflow);
+  console.log('Computed style transform:', computedStyle.transform);
+  console.log('Computed style scale:', computedStyle.scale);
+  console.log('Computed style zoom:', computedStyle.zoom);
+  console.log('Computed style max-width:', computedStyle.maxWidth);
+  console.log('Parent element:', printElement.parentElement?.tagName, printElement.parentElement?.className);
+  console.log('Parent overflow:', window.getComputedStyle(printElement.parentElement!).overflow);
+
+  // Check for visible vs hidden preview
+  const visibleEditor = document.querySelector('.invoice-page:not([aria-hidden])');
+  const visibleEditorRect = visibleEditor?.getBoundingClientRect();
+  console.log('Visible editor preview exists:', !!visibleEditor);
+  if (visibleEditorRect) {
+    console.log('Visible editor dimensions:', { width: visibleEditorRect.width, height: visibleEditorRect.height });
+  }
+  console.log('Captured element is hidden?', printElement.getAttribute('aria-hidden') === 'true');
 
   try {
-    // Ensure parent doesn't clip content during capture
-    if (parent) parent.style.overflow = 'visible';
-
-    // Force explicit A4 dimensions on the element
-    printElement.style.width = `${A4_W_PX}px`;
-    printElement.style.height = `${A4_H_PX}px`;
-
-    // Give the DOM time to apply the styles
-    await new Promise<void>(r => requestAnimationFrame(() => r()));
-
     const canvas = await html2canvas(printElement, {
       scale:           2,
       useCORS:         true,
@@ -62,19 +75,18 @@ export async function captureInvoiceAsPdf(printElement: HTMLElement): Promise<Bl
       windowHeight:    A4_H_PX,
     });
 
+    console.log('Canvas dimensions:', { width: canvas.width, height: canvas.height });
+    console.log('Canvas aspect ratio:', canvas.width / canvas.height);
+
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    // Calculate dimensions to preserve aspect ratio and fit exactly on A4
-    const imgWidth = 210;  // A4 width in mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, imgWidth, imgHeight);
+    // Add image at full A4 size (210mm x 297mm) to preserve exact PDF dimensions
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.93), 'JPEG', 0, 0, 210, 297);
+    console.log('PDF image added: 210mm x 297mm');
+    console.log('=== PDF CAPTURE COMPLETE ===');
     return pdf.output('blob');
-  } finally {
-    // Restore original styles
-    printElement.style.width = originalElementWidth;
-    printElement.style.height = originalElementHeight;
-    if (parent && originalParentOverflow !== undefined) {
-      parent.style.overflow = originalParentOverflow;
-    }
+  } catch (err) {
+    console.error('PDF capture failed:', err);
+    throw err;
   }
 }
 

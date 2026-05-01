@@ -482,9 +482,9 @@ export default function InvoiceForm({
       <div
         ref={ref}
         onClick={ro ? undefined : handlePageClick}
-        style={ro ? { height: `${A4_H_PX}px` } : undefined}
+        style={ro ? { width: `${A4_W_PX}px`, height: `${A4_H_PX}px`, boxSizing: 'border-box' } : undefined}
         className={ro
-          ? 'relative bg-white w-full flex flex-col invoice-page'
+          ? 'relative bg-white flex flex-col invoice-page'
           : `relative bg-white shadow-lg inv-shadow rounded-xl border border-slate-200 inv-border overflow-hidden flex flex-col min-h-[297mm] invoice-page${!readOnly && (stampVisible || sigVisible) ? ' cursor-crosshair' : ''}`
         }
       >
