@@ -499,16 +499,19 @@ export default function InvoiceForm({
               }
             </div>
             <div className="flex-shrink-0">
-              <div className="bg-slate-900 rounded-lg px-5 sm:px-5 print:px-5 py-3 sm:py-3 print:py-3 text-center shadow-md">
+              <div className="bg-slate-900 rounded-lg px-6 sm:px-6 print:px-6 py-4 sm:py-4 print:py-4 text-center shadow-md min-w-[260px]">
                 <p className="text-[10px] sm:text-[10px] print:text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-1">{docType === 'bon_livraison' ? 'BON DE LIVRAISON' : docType === 'devis' ? 'DEVIS' : 'FACTURE'}</p>
-                {ro || readOnly ? (
-                  <p className="text-white font-bold text-base sm:text-lg print:text-lg tracking-wide leading-tight">{invoiceNum}</p>
-                ) : (
+                {/* Paragraph: shown in view-only and print; hidden in edit mode on screen */}
+                <p className={`text-white font-bold text-lg sm:text-xl print:text-xl tracking-wide leading-tight ${!ro && !readOnly ? 'hidden print:block' : ''}`}>
+                  {invoiceNum}
+                </p>
+                {/* Input: shown only in edit mode on screen; hidden in print */}
+                {!ro && !readOnly && (
                   <input
                     type="text"
                     value={invoiceNum}
                     onChange={e => setInvoiceNum(e.target.value)}
-                    className="w-full bg-transparent text-white font-bold text-base sm:text-lg tracking-wide leading-tight text-center outline-none focus:ring-2 focus:ring-slate-400 rounded px-1 no-print"
+                    className="w-full bg-transparent text-white font-bold text-lg sm:text-xl tracking-wide leading-tight text-center outline-none focus:ring-2 focus:ring-slate-400 rounded px-1 sm:block print:hidden"
                   />
                 )}
               </div>
