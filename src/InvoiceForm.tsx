@@ -520,8 +520,8 @@ export default function InvoiceForm({
         <div className={`invoice-body ${ro ? 'grow shrink-0' : 'flex-1 min-h-0'}`}>
 
           {/* ── Date & Client ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 print:py-5 border-b border-slate-200">
-            <div className="flex flex-col sm:flex-row print:flex-row gap-8 sm:gap-16 print:gap-16 justify-between items-start">
+          <div className="px-4 sm:px-8 print:px-8 py-5 sm:py-6 print:py-6 border-b border-slate-200">
+            <div className="flex flex-col sm:flex-row print:flex-row gap-8 sm:gap-20 print:gap-20 justify-between items-start">
               {/* ── Left: Date ── */}
               <div className="flex-shrink-0">
                 <label className="block text-[10px] sm:text-xs print:text-xs font-bold text-slate-600 uppercase tracking-[0.05em] mb-2">Date</label>
@@ -541,12 +541,12 @@ export default function InvoiceForm({
               </div>
 
               {/* ── Right: Client Box (constrained width) ── */}
-              <div className="flex-shrink-0 sm:w-72 print:w-72">
+              <div className="flex-shrink-0 sm:w-80 print:w-80">
                 <label className="block text-[10px] sm:text-xs print:text-xs font-bold text-slate-600 uppercase tracking-[0.05em] mb-2">Client</label>
 
                 {/* CRM selector — screen editable only, never in print container */}
                 {!ro && !readOnly && (
-                  <div className="relative mb-2 no-print">
+                  <div className="relative mb-3 no-print">
                     {linkedClient ? (
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded text-xs">
                         <span className="font-medium text-emerald-700 flex-1 truncate">✓ {linkedClient.name}</span>
@@ -593,17 +593,17 @@ export default function InvoiceForm({
                 )}
 
                 {(ro || readOnly) ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded px-3 py-2.5">
-                    <p className="text-xs print:text-xs text-slate-800 whitespace-pre-line font-medium leading-snug">{client || '—'}</p>
+                  <div className="bg-slate-50 border border-slate-200 rounded px-4 py-4 min-h-[100px]">
+                    <p className="text-xs print:text-xs text-slate-800 whitespace-pre-line font-medium leading-relaxed">{client || '—'}</p>
                   </div>
                 ) : (
-                  <div className="bg-slate-50 border border-slate-300 rounded px-3 py-2">
+                  <div className="bg-slate-50 border border-slate-300 rounded px-4 py-3 min-h-[100px]">
                     <textarea
                       value={client}
                       onChange={e => setClient(e.target.value)}
                       placeholder={'Nom du client\nAdresse\nICE'}
-                      rows={2}
-                      className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none resize-none inv-field"
+                      rows={3}
+                      className="w-full bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none resize-none inv-field leading-relaxed"
                     />
                   </div>
                 )}
@@ -612,7 +612,7 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Spacing before articles ── */}
-          <div className="h-2 sm:h-3 print:h-3 bg-white" />
+          <div className="h-4 sm:h-6 print:h-6 bg-white" />
 
           {/* ── Line Items ── */}
           <div className="px-4 sm:px-8 print:px-8 py-4 sm:py-5 border-b border-slate-200">
@@ -622,17 +622,17 @@ export default function InvoiceForm({
               <table className="w-full border-collapse table-fixed">
                 <thead>
                   <tr className="bg-slate-50">
-                    <th className="text-left   text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-3 py-2.5 border-b-2 border-slate-300">Designation</th>
-                    <th className="text-center text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-2 py-2.5 border-b-2 border-slate-300 w-20">Qte</th>
-                    <th className="text-right  text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-2 py-2.5 border-b-2 border-slate-300 w-24">P.U (DH)</th>
-                    <th className="text-right  text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-3 py-2.5 border-b-2 border-slate-300 w-28">Total H.T.</th>
+                    <th className="text-left   text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-3 py-3 border-b-2 border-slate-300">Designation</th>
+                    <th className="text-center text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-2 py-3 border-b-2 border-slate-300 w-20">Qte</th>
+                    <th className="text-right  text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-2 py-3 border-b-2 border-slate-300 w-24">P.U (DH)</th>
+                    <th className="text-right  text-[11px] font-semibold text-slate-600 uppercase tracking-[0.04em] px-3 py-3 border-b-2 border-slate-300 w-28">Total H.T.</th>
                     {!ro && !readOnly && <th className="w-8 border-b-2 border-slate-300 no-print" />}
                   </tr>
                 </thead>
                 <tbody>
                   {items.map(item => (
                     <tr key={item.id} className={!ro && !readOnly ? 'group hover:bg-slate-50/50 transition-colors' : ''}>
-                      <td className="px-3 py-1.5 border-b border-slate-100 break-words">
+                      <td className="px-3 py-2.5 border-b border-slate-100 break-words">
                         {(ro || readOnly)
                           ? <span className="text-xs text-slate-800 block">{item.designation}</span>
                           : <input type="text" value={item.designation}
@@ -641,7 +641,7 @@ export default function InvoiceForm({
                               className="w-full px-1.5 py-1 text-xs text-slate-800 bg-transparent outline-none focus:bg-slate-50 rounded transition-colors" />
                         }
                       </td>
-                      <td className="px-2 py-1.5 border-b border-slate-100 text-center">
+                      <td className="px-2 py-2.5 border-b border-slate-100 text-center">
                         {(ro || readOnly)
                           ? <span className="text-xs text-slate-800">{item.quantity}</span>
                           : <input type="number" min="0" step="1" value={item.quantity || ''}
@@ -649,7 +649,7 @@ export default function InvoiceForm({
                               className="w-full px-1 py-1 text-xs text-center text-slate-800 bg-transparent outline-none focus:bg-slate-50 rounded transition-colors" />
                         }
                       </td>
-                      <td className="px-2 py-1.5 border-b border-slate-100 text-right">
+                      <td className="px-2 py-2.5 border-b border-slate-100 text-right">
                         {(ro || readOnly)
                           ? <span className="text-xs text-slate-800 block">{fmtNum(item.unitPrice)}</span>
                           : <input type="number" min="0" step="0.01" value={item.unitPrice || ''}
@@ -657,11 +657,11 @@ export default function InvoiceForm({
                               className="w-full px-1 py-1 text-xs text-right text-slate-800 bg-transparent outline-none focus:bg-slate-50 rounded transition-colors" />
                         }
                       </td>
-                      <td className="px-3 py-1.5 border-b border-slate-100 text-right">
+                      <td className="px-3 py-2.5 border-b border-slate-100 text-right">
                         <span className="text-xs font-semibold text-slate-700">{fmtNum(item.quantity * item.unitPrice)}</span>
                       </td>
                       {!ro && !readOnly && (
-                        <td className="px-1 py-1.5 border-b border-slate-100 no-print text-center">
+                        <td className="px-1 py-2.5 border-b border-slate-100 no-print text-center">
                           {items.length > 1 && (
                             <button onClick={() => removeItem(item.id)}
                               className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-all opacity-0 group-hover:opacity-100">
@@ -674,11 +674,11 @@ export default function InvoiceForm({
                   ))}
                   {Array.from({ length: placeholders }).map((_, i) => (
                     <tr key={`ph-${i}`}>
-                      <td className="px-3 py-2 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-2 py-2 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-2 py-2 border-b border-slate-100">&nbsp;</td>
-                      <td className="px-3 py-2 border-b border-slate-100">&nbsp;</td>
-                      {!ro && !readOnly && <td className="px-1 py-2 border-b border-slate-100 no-print" />}
+                      <td className="px-3 py-2.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-2 py-2.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-2 py-2.5 border-b border-slate-100">&nbsp;</td>
+                      <td className="px-3 py-2.5 border-b border-slate-100">&nbsp;</td>
+                      {!ro && !readOnly && <td className="px-1 py-2.5 border-b border-slate-100 no-print" />}
                     </tr>
                   ))}
                 </tbody>
@@ -715,14 +715,14 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Totals ── */}
-          <div className="px-4 sm:px-8 print:px-8 py-3 sm:py-4 print:py-4 bg-slate-50/50 border-t border-slate-200">
+          <div className="px-4 sm:px-8 print:px-8 py-5 sm:py-7 print:py-7 bg-slate-50/50 border-t border-slate-200">
             <div className="flex justify-end">
               <div className="w-full sm:w-64 print:w-64">
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200">
+                <div className="flex justify-between items-center py-2 border-b border-slate-200">
                   <span className="text-[10px] sm:text-xs print:text-xs font-semibold text-slate-700 uppercase tracking-[0.04em]">Total H.T.</span>
                   <span className="text-xs sm:text-sm print:text-sm font-semibold text-slate-800">{fmtNum(totalHT)} DH</span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200">
+                <div className="flex justify-between items-center py-2 border-b border-slate-200">
                   <span className="text-[10px] sm:text-xs print:text-xs font-semibold text-slate-700 uppercase tracking-[0.04em]">TVA ({tvaRate}%)</span>
                   <span className="text-xs sm:text-sm print:text-sm font-semibold text-slate-800">{fmtNum(tvaAmount)} DH</span>
                 </div>
@@ -735,11 +735,11 @@ export default function InvoiceForm({
           </div>
 
           {/* ── Amount in words ── */}
-          <div className="amount-section px-4 sm:px-8 print:px-8 py-3 border-t border-slate-200">
-            <p className="text-[9px] sm:text-[10px] print:text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-1">
+          <div className="amount-section px-4 sm:px-8 print:px-8 py-5 sm:py-6 print:py-6 border-t border-slate-200">
+            <p className="text-[9px] sm:text-[10px] print:text-[10px] font-semibold text-slate-700 uppercase tracking-[0.04em] mb-3">
               Arreter la presente facture a la somme de :
             </p>
-            <p className="text-xs sm:text-sm print:text-sm text-slate-800 font-medium bg-slate-50 px-3 py-2 rounded border border-slate-200 italic">
+            <p className="text-xs sm:text-sm print:text-sm text-slate-800 font-medium bg-slate-50 px-4 py-3 rounded border border-slate-200 italic leading-relaxed">
               {totalInWords}
             </p>
           </div>
