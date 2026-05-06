@@ -2,12 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Eye, Edit2, Trash2, ExternalLink,
   ShoppingCart, TrendingDown, CheckCircle, AlertCircle, Upload, Sparkles,
+  List, FolderOpen,
 } from 'lucide-react';
 import { MetricCard, TableActionBtn } from './ui';
 import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
 import { getAchats, deleteAchat, deleteAchatFile, patchAchat } from './services/achatService';
 import AchatImportModal from './AchatImportModal';
 import AchatAIModal from './AchatAIModal';
+import AchatDocumentsView from './AchatDocumentsView';
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,15 +26,18 @@ interface Props {
   onView: (id: string) => void;
 }
 
+type View = 'liste' | 'documents';
+
 export default function AchatList({ onNew, onEdit, onView }: Props) {
-  const [achats,      setAchats]      = useState<Achat[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [fetchError,  setFetchError]  = useState('');
-  const [search,      setSearch]      = useState('');
+  const [achats,       setAchats]       = useState<Achat[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [fetchError,   setFetchError]   = useState('');
+  const [view,         setView]         = useState<View>('liste');
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState<AchatPaymentStatus | ''>('');
-  const [yearFilter,  setYearFilter]  = useState('');
-  const [trimFilter,  setTrimFilter]  = useState<'' | 'T1' | 'T2' | 'T3' | 'T4'>('');
-  const [showImport,  setShowImport]  = useState(false);
+  const [yearFilter,   setYearFilter]   = useState('');
+  const [trimFilter,   setTrimFilter]   = useState<'' | 'T1' | 'T2' | 'T3' | 'T4'>('');
+  const [showImport,   setShowImport]   = useState(false);
   const [showAIModal,  setShowAIModal]  = useState(false);
   const [inlineError,  setInlineError]  = useState('');
 
@@ -134,7 +139,34 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
 
       {/* ── Page header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">Achats</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-800">Achats</h1>
+          {/* View toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5">
+            <button
+              onClick={() => setView('liste')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                view === 'liste'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              Liste
+            </button>
+            <button
+              onClick={() => setView('documents')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                view === 'documents'
+                  ? 'bg-white text-slate-800 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              Documents
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAIModal(true)}
@@ -160,238 +192,252 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
         </div>
       </div>
 
-        {/* ── Metrics ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            icon={<ShoppingCart className="w-5 h-5 text-slate-500" />}
-            iconBg="bg-slate-50"
-            label="Total achats"
-            value={String(metrics.total)}
-          />
-          <MetricCard
-            icon={<TrendingDown className="w-5 h-5 text-blue-500" />}
-            iconBg="bg-blue-50"
-            label="Total TTC achats"
-            value={`${fmt(metrics.totalTTC)} DH`}
-            valueClass="text-blue-700"
-          />
-          <MetricCard
-            icon={<CheckCircle className="w-5 h-5 text-emerald-500" />}
-            iconBg="bg-emerald-50"
-            label="TVA récupérable"
-            value={`${fmt(metrics.totalTVA)} DH`}
-            valueClass="text-emerald-700"
-          />
-          <MetricCard
-            icon={<AlertCircle className="w-5 h-5 text-amber-500" />}
-            iconBg="bg-amber-50"
-            label="Non payés (TTC)"
-            value={`${fmt(metrics.unpaid)} DH`}
-            valueClass="text-amber-700"
-          />
-        </div>
+      {/* ── Metrics ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          icon={<ShoppingCart className="w-5 h-5 text-slate-500" />}
+          iconBg="bg-slate-50"
+          label="Total achats"
+          value={String(metrics.total)}
+        />
+        <MetricCard
+          icon={<TrendingDown className="w-5 h-5 text-blue-500" />}
+          iconBg="bg-blue-50"
+          label="Total TTC achats"
+          value={`${fmt(metrics.totalTTC)} DH`}
+          valueClass="text-blue-700"
+        />
+        <MetricCard
+          icon={<CheckCircle className="w-5 h-5 text-emerald-500" />}
+          iconBg="bg-emerald-50"
+          label="TVA récupérable"
+          value={`${fmt(metrics.totalTVA)} DH`}
+          valueClass="text-emerald-700"
+        />
+        <MetricCard
+          icon={<AlertCircle className="w-5 h-5 text-amber-500" />}
+          iconBg="bg-amber-50"
+          label="Non payés (TTC)"
+          value={`${fmt(metrics.unpaid)} DH`}
+          valueClass="text-amber-700"
+        />
+      </div>
 
-        {/* ── Filters ── */}
-        {inlineError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
-            {inlineError}
-          </div>
-        )}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Fournisseur, n° facture, catégorie…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-all"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as AchatPaymentStatus | '')}
-              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-            >
-              <option value="">Tous les statuts</option>
-              <option value="Non payé">Non payé</option>
-              <option value="Payé">Payé</option>
-            </select>
-            <select
-              value={yearFilter}
-              onChange={e => setYearFilter(e.target.value)}
-              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-            >
-              <option value="">Toutes les années</option>
-              {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select
-              value={trimFilter}
-              onChange={e => setTrimFilter(e.target.value as '' | 'T1' | 'T2' | 'T3' | 'T4')}
-              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-            >
-              <option value="">Tous les trimestres</option>
-              <option value="T1">T1 (Jan–Mar)</option>
-              <option value="T2">T2 (Avr–Juin)</option>
-              <option value="T3">T3 (Jul–Sep)</option>
-              <option value="T4">T4 (Oct–Déc)</option>
-            </select>
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortKey)}
-              className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
-            >
-              <option value="date_desc">Date (récent → ancien)</option>
-              <option value="date_asc">Date (ancien → récent)</option>
-              <option value="name_asc">Fournisseur A → Z</option>
-              <option value="name_desc">Fournisseur Z → A</option>
-              <option value="amount_desc">Montant (haut → bas)</option>
-              <option value="amount_asc">Montant (bas → haut)</option>
-            </select>
-          </div>
-        </div>
+      {/* ── Documents view ── */}
+      {view === 'documents' && (
+        <AchatDocumentsView
+          achats={achats}
+          loading={loading}
+          onView={onView}
+        />
+      )}
 
-        {/* ── List ── */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+      {/* ── Liste view ── */}
+      {view === 'liste' && (
+        <>
+          {/* Filters */}
+          {inlineError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+              {inlineError}
             </div>
-          ) : fetchError ? (
-            <div className="flex flex-col items-center justify-center py-16 text-red-500 text-sm gap-2">
-              <span>{fetchError}</span>
-              <button onClick={load} className="text-xs underline text-slate-500">Réessayer</button>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <ShoppingCart className="w-10 h-10 mb-3 opacity-25" />
-              <p className="text-sm font-medium">Aucun achat trouvé</p>
-              {achats.length === 0 && (
-                <p className="text-xs mt-1">Créez votre premier achat pour commencer</p>
-              )}
-            </div>
-          ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Fournisseur</th>
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Date</th>
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-36">N° Facture</th>
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-32">Catégorie</th>
-                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-36">Montant TTC</th>
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Statut</th>
-                      <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Mode</th>
-                      <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3 w-36">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filtered.map(a => (
-                      <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-slate-800">{a.supplier_name || '—'}</span>
-                            {a.status === 'needs_review' && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
-                                <Sparkles className="w-3 h-3" />
-                                IA
-                              </span>
-                            )}
-                          </div>
-                          {a.description && (
-                            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{a.description}</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-600">{dateFR(a.invoice_date)}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-600 font-mono">{a.supplier_invoice_number || '—'}</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <span className="text-sm text-slate-600">{a.category || '—'}</span>
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <span className="text-sm font-semibold text-slate-800">{fmt(a.amount_ttc)} DH</span>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <select
-                            value={a.payment_status}
-                            onChange={e => handleStatusChange(a, e.target.value as AchatPaymentStatus)}
-                            onClick={e => e.stopPropagation()}
-                            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${
-                              a.payment_status === 'Payé'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-amber-50 text-amber-700'
-                            }`}
-                          >
-                            <option value="Non payé">Non payé</option>
-                            <option value="Payé">Payé</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <select
-                            value={a.payment_method ?? 'Virement'}
-                            onChange={e => handleMethodChange(a, e.target.value as PaymentMethod)}
-                            onClick={e => e.stopPropagation()}
-                            className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${PM_STYLES[a.payment_method ?? 'Virement'] ?? PM_STYLES['Virement']}`}
-                          >
-                            <option value="Virement">Virement</option>
-                            <option value="Espèce">Espèce</option>
-                            <option value="Chèque">Chèque</option>
-                            <option value="Carte">Carte</option>
-                          </select>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center justify-end gap-0.5">
-                            {a.file_url && (
-                              <a
-                                href={a.file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Voir fichier"
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </a>
-                            )}
-                            <TableActionBtn title="Voir"      onClick={() => onView(a.id)}><Eye    className="w-4 h-4" /></TableActionBtn>
-                            <TableActionBtn title="Modifier"  onClick={() => onEdit(a.id)}><Edit2  className="w-4 h-4" /></TableActionBtn>
-                            <TableActionBtn title="Supprimer" onClick={() => handleDelete(a)} danger><Trash2 className="w-4 h-4" /></TableActionBtn>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Mobile cards */}
-              <div className="sm:hidden divide-y divide-slate-100">
-                {filtered.map(a => (
-                  <MobileAchatCard
-                    key={a.id}
-                    achat={a}
-                    onView={() => onView(a.id)}
-                    onEdit={() => onEdit(a.id)}
-                    onDelete={() => handleDelete(a)}
-                    onStatusChange={status => handleStatusChange(a, status)}
-                    onMethodChange={method => handleMethodChange(a, method)}
-                  />
-                ))}
-              </div>
-            </>
           )}
-        </div>
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Fournisseur, n° facture, catégorie…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-all"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as AchatPaymentStatus | '')}
+                className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="Non payé">Non payé</option>
+                <option value="Payé">Payé</option>
+              </select>
+              <select
+                value={yearFilter}
+                onChange={e => setYearFilter(e.target.value)}
+                className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                <option value="">Toutes les années</option>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <select
+                value={trimFilter}
+                onChange={e => setTrimFilter(e.target.value as '' | 'T1' | 'T2' | 'T3' | 'T4')}
+                className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                <option value="">Tous les trimestres</option>
+                <option value="T1">T1 (Jan–Mar)</option>
+                <option value="T2">T2 (Avr–Juin)</option>
+                <option value="T3">T3 (Jul–Sep)</option>
+                <option value="T4">T4 (Oct–Déc)</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as SortKey)}
+                className="flex-1 sm:flex-none px-3 py-2.5 sm:py-2 text-sm border border-slate-200 rounded-lg text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                <option value="date_desc">Date (récent → ancien)</option>
+                <option value="date_asc">Date (ancien → récent)</option>
+                <option value="name_asc">Fournisseur A → Z</option>
+                <option value="name_desc">Fournisseur Z → A</option>
+                <option value="amount_desc">Montant (haut → bas)</option>
+                <option value="amount_asc">Montant (bas → haut)</option>
+              </select>
+            </div>
+          </div>
 
-      {!loading && filtered.length > 0 && (
-        <p className="text-xs text-slate-400 text-right">
-          {filtered.length} achat{filtered.length > 1 ? 's' : ''}
-          {filtered.length !== achats.length ? ` sur ${achats.length}` : ''}
-        </p>
+          {/* Table / cards */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-600 rounded-full animate-spin" />
+              </div>
+            ) : fetchError ? (
+              <div className="flex flex-col items-center justify-center py-16 text-red-500 text-sm gap-2">
+                <span>{fetchError}</span>
+                <button onClick={load} className="text-xs underline text-slate-500">Réessayer</button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <ShoppingCart className="w-10 h-10 mb-3 opacity-25" />
+                <p className="text-sm font-medium">Aucun achat trouvé</p>
+                {achats.length === 0 && (
+                  <p className="text-xs mt-1">Créez votre premier achat pour commencer</p>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3">Fournisseur</th>
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Date</th>
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-36">N° Facture</th>
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-32">Catégorie</th>
+                        <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-36">Montant TTC</th>
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Statut</th>
+                        <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-28">Mode</th>
+                        <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-5 py-3 w-36">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filtered.map(a => (
+                        <tr key={a.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-800">{a.supplier_name || '—'}</span>
+                              {a.status === 'needs_review' && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                                  <Sparkles className="w-3 h-3" />
+                                  IA
+                                </span>
+                              )}
+                            </div>
+                            {a.description && (
+                              <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{a.description}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-sm text-slate-600">{dateFR(a.invoice_date)}</span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-sm text-slate-600 font-mono">{a.supplier_invoice_number || '—'}</span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="text-sm text-slate-600">{a.category || '—'}</span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <span className="text-sm font-semibold text-slate-800">{fmt(a.amount_ttc)} DH</span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <select
+                              value={a.payment_status}
+                              onChange={e => handleStatusChange(a, e.target.value as AchatPaymentStatus)}
+                              onClick={e => e.stopPropagation()}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${
+                                a.payment_status === 'Payé'
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : 'bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              <option value="Non payé">Non payé</option>
+                              <option value="Payé">Payé</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <select
+                              value={a.payment_method ?? 'Virement'}
+                              onChange={e => handleMethodChange(a, e.target.value as PaymentMethod)}
+                              onClick={e => e.stopPropagation()}
+                              className={`px-2.5 py-1 rounded-full text-xs font-medium border-0 outline-none cursor-pointer ${PM_STYLES[a.payment_method ?? 'Virement'] ?? PM_STYLES['Virement']}`}
+                            >
+                              <option value="Virement">Virement</option>
+                              <option value="Espèce">Espèce</option>
+                              <option value="Chèque">Chèque</option>
+                              <option value="Carte">Carte</option>
+                            </select>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center justify-end gap-0.5">
+                              {a.file_url && (
+                                <a
+                                  href={a.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Voir fichier"
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              )}
+                              <TableActionBtn title="Voir"      onClick={() => onView(a.id)}><Eye    className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Modifier"  onClick={() => onEdit(a.id)}><Edit2  className="w-4 h-4" /></TableActionBtn>
+                              <TableActionBtn title="Supprimer" onClick={() => handleDelete(a)} danger><Trash2 className="w-4 h-4" /></TableActionBtn>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {filtered.map(a => (
+                    <MobileAchatCard
+                      key={a.id}
+                      achat={a}
+                      onView={() => onView(a.id)}
+                      onEdit={() => onEdit(a.id)}
+                      onDelete={() => handleDelete(a)}
+                      onStatusChange={status => handleStatusChange(a, status)}
+                      onMethodChange={method => handleMethodChange(a, method)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {!loading && filtered.length > 0 && (
+            <p className="text-xs text-slate-400 text-right">
+              {filtered.length} achat{filtered.length > 1 ? 's' : ''}
+              {filtered.length !== achats.length ? ` sur ${achats.length}` : ''}
+            </p>
+          )}
+        </>
       )}
 
       {showImport && (
@@ -492,7 +538,7 @@ function MobileAchatCard({
   );
 }
 
-// ── PaymentMethodBadge ────────────────────────────────────────────────────────
+// ── PaymentMethod styles ──────────────────────────────────────────────────────
 
 const PM_STYLES: Record<PaymentMethod, string> = {
   'Virement': 'bg-blue-50 text-blue-700',
@@ -500,13 +546,3 @@ const PM_STYLES: Record<PaymentMethod, string> = {
   'Chèque':   'bg-violet-50 text-violet-700',
   'Carte':    'bg-pink-50 text-pink-700',
 };
-
-function PaymentMethodBadge({ value }: { value?: PaymentMethod }) {
-  const label = value ?? 'Virement';
-  return (
-    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${PM_STYLES[label] ?? PM_STYLES['Virement']}`}>
-      {label}
-    </span>
-  );
-}
-

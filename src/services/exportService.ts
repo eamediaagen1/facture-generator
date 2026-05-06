@@ -190,7 +190,86 @@ export function parseBackupFile(json: string): { preview: BackupPreview; raw: Re
   };
 }
 
+import JSZip from 'jszip';
+import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient';
+
+// ── Trimester ZIP export ──────────────────────────────────────────────────────
+
+const TRIM_MONTHS: Record<1 | 2 | 3 | 4, [number, number]> = {
+  1: [1, 3],
+  2: [4, 6],
+  3: [7, 9],
+  4: [10, 12],
+};
+
+export async function exportAchatsTrimesterZip(year: number, trimester: 1 | 2 | 3 | 4): Promise<void> {
+  const [mStart, mEnd] = TRIM_MONTHS[trimester];
+  const dateStart = `${year}-${String(mStart).padStart(2, '0')}-01`;
+  const dateEnd   = `${year}-${String(mEnd).padStart(2, '0')}-${mEnd === 3 ? 31 : mEnd === 6 ? 30 : mEnd === 9 ? 30 : 31}`;
+
+  const allAchats = await getAchats();
+  const rows = allAchats.filter(a => {
+    const d = a.invoice_date;
+    return d >= dateStart && d <= dateEnd;
+  });
+
+  const zip = new JSZip();
+
+  // Build XLSX saisie
+  const xlsRows = rows.map(a => ({
+    'Date':               a.invoice_date,
+    'Fournisseur':        a.supplier_name,
+    'Numéro facture':     a.supplier_invoice_number,
+    'Montant HT':         a.amount_ht,
+    'TVA':                a.tva,
+    'Montant TTC':        a.amount_ttc,
+    'Mode de paiement':   a.payment_method ?? '',
+    'Catégorie':          a.category,
+    'Notes / Référence':  a.notes,
+    'Fichier joint':      a.file_path ? a.file_path.split('/').pop() ?? '' : '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(xlsRows.length > 0 ? xlsRows : [
+    {
+      'Date': '', 'Fournisseur': '', 'Numéro facture': '',
+      'Montant HT': '', 'TVA': '', 'Montant TTC': '',
+      'Mode de paiement': '', 'Catégorie': '', 'Notes / Référence': '', 'Fichier joint': '',
+    },
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `Saisie T${trimester} ${year}`);
+  const xlsBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  zip.file(`saisie_achats_T${trimester}_${year}.xlsx`, xlsBuffer);
+
+  // Fetch and bundle attachment files
+  const filesFolder = zip.folder('documents');
+  await Promise.all(
+    rows
+      .filter(a => a.file_url)
+      .map(async a => {
+        try {
+          const resp = await fetch(a.file_url!);
+          if (!resp.ok) return;
+          const blob = await resp.blob();
+          const ext  = a.file_url!.split('?')[0].split('.').pop() ?? 'bin';
+          const safe = a.supplier_name.replace(/[^a-zA-Z0-9À-ɏ\-_ ]/g, '_').slice(0, 40);
+          const name = `${a.invoice_date}_${safe}_${a.supplier_invoice_number || a.id.slice(0, 8)}.${ext}`;
+          filesFolder!.file(name, blob);
+        } catch {
+          // skip files that can't be fetched
+        }
+      }),
+  );
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a   = document.createElement('a');
+  a.href     = url;
+  a.download = `achats_export_T${trimester}_${year}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export async function importFromBackup(
   raw: Record<string, unknown>,

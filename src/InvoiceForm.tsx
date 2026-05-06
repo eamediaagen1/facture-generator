@@ -7,6 +7,7 @@ import { getClients } from './services/clientService';
 import { signOut } from './services/authService';
 import { sendConfirmationEmail } from './services/emailService';
 import { captureInvoiceAsPdf, uploadInvoicePdf, A4_W_PX, A4_H_PX } from './services/pdfService';
+import { getStampSize } from './services/companySettingsService';
 
 const stampFiles = import.meta.glob<string>('./assets/stamp.png', { eager: true, query: '?url', import: 'default' });
 const STAMP_URL: string | null = stampFiles['./assets/stamp.png'] ?? null;
@@ -27,7 +28,9 @@ const COMPANY = {
 };
 
 const MIN_TABLE_ROWS = 4;
-const STAMP_SIZE_PX = 220;  // Stamp size in pixels (easily adjustable)
+// Base stamp dimensions at 100% scale (match original visual size)
+const STAMP_BASE_W = 140;
+const STAMP_BASE_H = 90;
 const FACTURE_STATUSES:     InvoiceStatus[] = ['Générée', 'Envoyée', 'Payée', 'Annulée'];
 const DEVIS_STATUSES:       InvoiceStatus[] = ['Envoyé', 'Accepté', 'Refusé'];
 const BL_STATUSES:          InvoiceStatus[] = ['Générée', 'Livré', 'Annulée'];
@@ -140,6 +143,7 @@ export default function InvoiceForm({
   // Stamp overlay
   const [stampVisible, setStampVisible] = useState(false);
   const [stampPos,     setStampPos]     = useState({ x: 70, y: 78 });
+  const [stampScale]                    = useState(getStampSize);
 
   // Drag
   const [dragging,  setDragging]  = useState<'stamp' | null>(null);
@@ -703,7 +707,15 @@ export default function InvoiceForm({
             onMouseDown={!ro && !readOnly ? e => startDrag(e, 'stamp') : undefined}
             onTouchStart={!ro && !readOnly ? e => startDragTouch(e, 'stamp') : undefined}
           >
-            <img src={STAMP_URL} alt="Cachet" style={{ width: `${STAMP_SIZE_PX}px`, height: `${STAMP_SIZE_PX}px` }} className="max-w-[140px] max-h-[90px] object-contain pointer-events-none opacity-85 drop-shadow-lg print:max-w-[120px] print:max-h-[80px]" />
+            <img
+              src={STAMP_URL}
+              alt="Cachet"
+              style={{
+                width:  `${Math.round(STAMP_BASE_W * stampScale)}px`,
+                height: `${Math.round(STAMP_BASE_H * stampScale)}px`,
+              }}
+              className="object-contain pointer-events-none opacity-85 drop-shadow-lg"
+            />
             {!ro && !readOnly && (
               <button
                 className="no-print absolute -top-3 -right-3 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow-md"

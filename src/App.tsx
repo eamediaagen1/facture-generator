@@ -115,6 +115,14 @@ export default function App() {
               : await nextInvoiceNumber();
             setPage({ name: 'new', invoiceNumber: number, docType });
           }}
+          onNewDocWithPrefill={async (docType, prefill) => {
+            const number = docType === 'devis'
+              ? await nextDevisNumber()
+              : docType === 'bon_livraison'
+              ? await nextBonLivraisonNumber()
+              : await nextInvoiceNumber();
+            setPage({ name: 'new', invoiceNumber: number, docType, prefill });
+          }}
         />
       );
     }
@@ -231,6 +239,12 @@ export default function App() {
               ? await nextBonLivraisonNumber()
               : await nextInvoiceNumber();
             setPage({ name: 'new', invoiceNumber: number, docType });
+          }}
+          onNewWithPrefill={async (docType, prefill) => {
+            const number = docType === 'devis'
+              ? await nextDevisNumber()
+              : await nextInvoiceNumber();
+            setPage({ name: 'new', invoiceNumber: number, docType, prefill });
           }}
           onCreateBL={async (inv) => {
             const number = await nextBonLivraisonNumber();

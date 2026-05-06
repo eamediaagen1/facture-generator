@@ -108,12 +108,15 @@ Rules:
 - Return only the JSON object, no other text`
 
 function invoiceDraftPrompt(docType: string, promptText: string): string {
-  const label = docType === 'devis' ? 'quote/devis' : 'invoice/facture'
-  return `You convert natural-language instructions or document content into an editable ${label} draft for a Moroccan construction/service company.
+  return `You convert natural-language instructions or document content into editable document drafts for a Moroccan construction/service company.
+
+DETECT AND RETURN the document type requested by the user. Allowed types: "facture" (invoice), "devis" (quote), "bon_livraison" (delivery note).
+If document type is not explicitly mentioned, default to "facture".
 
 Return ONLY a valid JSON object with exactly this shape:
 {
-  "client": "string — client name and address as multiline text if available, empty string if unknown",
+  "document_type": "facture" | "devis" | "bon_livraison",
+  "client": "string — client name only (no address), empty string if unknown",
   "items": [
     {
       "designation": "string — service/product description in French if possible",
@@ -126,6 +129,8 @@ Return ONLY a valid JSON object with exactly this shape:
 }
 
 Rules:
+- DETECT document_type from the prompt: "facture" / "invoice" → facture, "devis" / "quote" → devis, "bon de livraison" / "BL" / "delivery" → bon_livraison
+- client field should contain ONLY the client name (no address, city, or ICE) — the app will look up and link existing clients
 - Do NOT create, infer, or return a document number.
 - Do NOT return status, totals, database ids, storage paths, or PDF fields.
 - The app uses fixed TVA separately, so do not add TVA as a line item unless the user explicitly asks for it as a service/product.
@@ -162,11 +167,18 @@ Deno.serve(async (req: Request) => {
     let form: FormData
     try {
       form = await req.formData()
-    } catch {
+    } catch (e) {
+      console.error('[extract-achat] FormData parsing error:', e);
       return errorResponse(400, 'Corps de la requête invalide (FormData attendu)')
     }
 
-    const intent = String(form.get('intent') ?? '')
+    console.log('[extract-achat] FormData parsed successfully');
+    const formKeys = Array.from(form.keys());
+    console.log('[extract-achat] FormData keys:', formKeys);
+
+    const intent = String(form.get('intent') ?? '');
+    console.log('[extract-achat] intent value:', JSON.stringify(intent));
+    console.log('[extract-achat] intent === "invoice_draft"?', intent === 'invoice_draft');
 
     if (intent === 'invoice_draft') {
       const docType = String(form.get('doc_type') ?? 'facture') === 'devis' ? 'devis' : 'facture'
@@ -292,9 +304,15 @@ Deno.serve(async (req: Request) => {
         return errorResponse(422, "L'IA n'a détecté aucune ligne article exploitable")
       }
 
+      // Validate and normalize document_type
+      const detectedDocType = String(parsed.document_type ?? 'facture').toLowerCase().trim();
+      const validDocTypes = ['facture', 'devis', 'bon_livraison'];
+      const documentType = validDocTypes.includes(detectedDocType) ? detectedDocType : 'facture';
+
       return new Response(JSON.stringify({
         draft: {
           client: String(parsed.client ?? '').trim(),
+          document_type: documentType,
           items,
           notes: String(parsed.notes ?? '').trim(),
           confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),

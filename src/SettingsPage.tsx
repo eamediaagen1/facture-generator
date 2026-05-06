@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { Download, Upload, Database } from 'lucide-react';
+import { Download, Upload, Database, Stamp, Sparkles } from 'lucide-react';
 import { resetFactureCounter, resetDevisCounter, resetBonLivraisonCounter } from './services/numberingService';
+import { getStampSize, setStampSize as saveStampSize, getQuickAIEnabled, setQuickAIEnabled } from './services/companySettingsService';
 import {
   exportFacturesCSV, exportDevisCSV, exportBLCSV,
   exportAchatsCSV, exportClientsCSV, exportBankStatementsCSV,
@@ -27,6 +28,24 @@ export default function SettingsPage() {
   const [blStartFrom,  setBlStartFrom]  = useState(0);
   const [blLoading,    setBlLoading]    = useState(false);
   const [blResult,     setBlResult]     = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // ── Stamp size ─────────────────────────────────────────────────────────────
+
+  const [stampSize, setStampSizeState] = useState(() => Math.round(getStampSize() * 100));
+
+  function handleStampSize(pct: number) {
+    setStampSizeState(pct);
+    saveStampSize(pct / 100);
+  }
+
+  // ── Quick AI ────────────────────────────────────────────────────────────────
+
+  const [quickAI, setQuickAIState] = useState(() => getQuickAIEnabled());
+
+  function handleQuickAIToggle(enabled: boolean) {
+    setQuickAIState(enabled);
+    setQuickAIEnabled(enabled);
+  }
 
   // ── Export ──────────────────────────────────────────────────────────────────
 
@@ -212,6 +231,76 @@ export default function SettingsPage() {
         onStartFromChange={setBlStartFrom}
         onReset={handleResetBL}
       />
+
+      {/* ── Apparence ── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+          <Stamp className="w-4 h-4 text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-800">Apparence des documents</h2>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Taille du cachet
+              </label>
+              <span className="text-sm font-bold text-slate-800 tabular-nums">{stampSize}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-400 shrink-0 w-8 text-right">50%</span>
+              <input
+                type="range"
+                min={50}
+                max={400}
+                step={5}
+                value={stampSize}
+                onChange={e => handleStampSize(Number(e.target.value))}
+                className="flex-1 h-1.5 rounded-full accent-violet-600 cursor-pointer"
+              />
+              <span className="text-xs text-slate-400 shrink-0 w-10">400%</span>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">
+              Ajuste la taille visuelle du cachet sur les factures, devis et bons de livraison — aperçu et export PDF inclus.
+            </p>
+          </div>
+          {stampSize !== 100 && (
+            <button
+              onClick={() => handleStampSize(100)}
+              className="text-xs text-slate-500 hover:text-slate-800 underline underline-offset-2 transition-colors"
+            >
+              Réinitialiser à 100%
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Quick AI ── */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-800">Assistant IA</h2>
+        </div>
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700">Barre IA rapide sur le tableau de bord</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Permet de créer une facture, un devis ou d'importer un achat en langage naturel.
+              </p>
+            </div>
+            <button
+              role="switch"
+              aria-checked={quickAI}
+              onClick={() => handleQuickAIToggle(!quickAI)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 ${quickAI ? 'bg-violet-600' : 'bg-slate-200'}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${quickAI ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* ── Export CSV ── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

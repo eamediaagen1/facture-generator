@@ -1,17 +1,19 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ExportModal from './ExportModal';
+import InvoiceAIModal from './InvoiceAIModal';
 import {
   Plus, Search, Eye, Edit2, Download, Trash2,
-  FileText, ChevronDown,
+  FileText, ChevronDown, Sparkles,
   Receipt, TrendingUp, CheckCircle, Clock,
   Truck,
 } from 'lucide-react';
 import { MetricCard, TableActionBtn } from './ui';
-import type { Invoice, InvoiceStatus, DocumentType } from './types';
+import type { Invoice, InvoiceStatus, DocumentType, InvoiceDraftPrefill } from './types';
 import { getFactures, deleteFacture, updateStatus, upsertFacture, factureExistsForDevis, blExistsForSource } from './services/factureService';
 import { downloadInvoicePdf } from './services/pdfService';
 import { nextInvoiceNumber } from './services/numberingService';
+import { ENABLE_AI_DOCUMENT_CREATION } from './config';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -43,16 +45,17 @@ function dateFR(s: string) {
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onNew:      (docType: DocumentType) => Promise<void>;
-  onEdit:     (id: string) => void;
-  onView:     (id: string) => void;
-  onPrint:    (id: string) => void;
-  onCreateBL: (inv: Invoice) => Promise<void>;
+  onNew:              (docType: DocumentType) => Promise<void>;
+  onNewWithPrefill?:  (docType: DocumentType, prefill: InvoiceDraftPrefill) => Promise<void>;
+  onEdit:             (id: string) => void;
+  onView:             (id: string) => void;
+  onPrint:            (id: string) => void;
+  onCreateBL:         (inv: Invoice) => Promise<void>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL }: Props) {
+export default function InvoiceList({ onNew, onNewWithPrefill, onEdit, onView, onPrint, onCreateBL }: Props) {
   const [invoices,     setInvoices]     = useState<Invoice[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [newLoading,   setNewLoading]   = useState(false);
@@ -64,6 +67,7 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
   const [typeFilter,   setTypeFilter]   = useState<DocumentType | ''>('');
   const [trimFilter,   setTrimFilter]   = useState<'' | 'T1' | 'T2' | 'T3' | 'T4'>('');
   const [showExport,   setShowExport]   = useState(false);
+  const [showAIModal,  setShowAIModal]  = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -212,6 +216,16 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Factures &amp; Devis</h1>
         <div className="flex flex-wrap items-center gap-2">
+          {ENABLE_AI_DOCUMENT_CREATION && (
+            <button
+              onClick={() => setShowAIModal(true)}
+              title="Créer avec l'IA"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 min-h-[44px] text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 rounded-lg transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 shrink-0 text-violet-500" />
+              <span className="hidden sm:inline">Créer avec IA</span>
+            </button>
+          )}
           <NewDocMenu onNew={handleNew} loading={newLoading} />
           <button
             onClick={() => setShowExport(true)}
@@ -420,6 +434,16 @@ export default function InvoiceList({ onNew, onEdit, onView, onPrint, onCreateBL
         </p>
       )}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+
+      {ENABLE_AI_DOCUMENT_CREATION && showAIModal && (
+        <InvoiceAIModal
+          onClose={() => setShowAIModal(false)}
+          onSuccess={async prefill => {
+            setShowAIModal(false);
+            if (onNewWithPrefill) await onNewWithPrefill('facture', prefill);
+          }}
+        />
+      )}
     </div>
   );
 }

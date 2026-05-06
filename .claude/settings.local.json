@@ -23,7 +23,14 @@
       "Bash(git commit -m 'fix: show invoice number in both PDF preview and saved PDF *)",
       "Bash(git commit -m 'improve: enhance PDF layout spacing and readability *)",
       "Bash(git commit -m 'fix: compact PDF preview layout spacing for cleaner appearance *)",
-      "Bash(git commit -m 'fix: show invoice number in Aperçu PDF preview *)"
+      "Bash(git commit -m 'fix: show invoice number in Aperçu PDF preview *)",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(curl -s http://localhost:5174)",
+      "Bash(npx supabase *)",
+      "Bash(curl -s https://attejmyrcfgemehgtkzr.supabase.co/functions/v1/extract-achat -X OPTIONS -H 'Content-Type: application/json')",
+      "Bash(curl -s https://attejmyrcfgemehgtkzr.supabase.co/functions/v1/extract-achat -X OPTIONS)",
+      "Bash(git checkout *)",
+      "Bash(xargs ls *)"
     ]
   }
 }
