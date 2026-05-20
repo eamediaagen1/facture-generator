@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { MetricCard, TableActionBtn } from './ui';
 import type { Achat, AchatPaymentStatus, PaymentMethod } from './types';
-import { getAchats, deleteAchat, deleteAchatFile, patchAchat } from './services/achatService';
+import { getAchats, deleteAchat, deleteAchatFile, patchAchat, getAchatFileUrl } from './services/achatService';
 import AchatImportModal from './AchatImportModal';
 import AchatAIModal from './AchatAIModal';
 import AchatDocumentsView from './AchatDocumentsView';
@@ -132,6 +132,21 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
     if (a.file_path) await deleteAchatFile(a.file_path);
     await deleteAchat(a.id);
     setAchats(prev => prev.filter(x => x.id !== a.id));
+  }
+
+  async function handleOpenFile(a: Achat) {
+    const src = a.file_path ?? a.file_url;
+    if (!src) return;
+    const win = window.open('', '_blank', 'noopener,noreferrer');
+    try {
+      const url = await getAchatFileUrl(src);
+      if (win) win.location.href = url;
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e: unknown) {
+      if (win) win.close();
+      setInlineError(e instanceof Error ? e.message : 'Impossible d’ouvrir le fichier');
+      setTimeout(() => setInlineError(''), 4000);
+    }
   }
 
   return (
@@ -391,16 +406,15 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
                           </td>
                           <td className="px-5 py-3.5">
                             <div className="flex items-center justify-end gap-0.5">
-                              {a.file_url && (
-                                <a
-                                  href={a.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                              {(a.file_path || a.file_url) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenFile(a)}
                                   title="Voir fichier"
                                   className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
                                 >
                                   <ExternalLink className="w-4 h-4" />
-                                </a>
+                                </button>
                               )}
                               <TableActionBtn title="Voir"      onClick={() => onView(a.id)}><Eye    className="w-4 h-4" /></TableActionBtn>
                               <TableActionBtn title="Modifier"  onClick={() => onEdit(a.id)}><Edit2  className="w-4 h-4" /></TableActionBtn>
@@ -422,6 +436,7 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
                       onView={() => onView(a.id)}
                       onEdit={() => onEdit(a.id)}
                       onDelete={() => handleDelete(a)}
+                      onOpenFile={() => handleOpenFile(a)}
                       onStatusChange={status => handleStatusChange(a, status)}
                       onMethodChange={method => handleMethodChange(a, method)}
                     />
@@ -461,12 +476,13 @@ export default function AchatList({ onNew, onEdit, onView }: Props) {
 // ── Mobile card ───────────────────────────────────────────────────────────────
 
 function MobileAchatCard({
-  achat, onView, onEdit, onDelete, onStatusChange, onMethodChange,
+  achat, onView, onEdit, onDelete, onOpenFile, onStatusChange, onMethodChange,
 }: {
   achat:          Achat;
   onView:         () => void;
   onEdit:         () => void;
   onDelete:       () => void;
+  onOpenFile:     () => void;
   onStatusChange: (s: AchatPaymentStatus) => void;
   onMethodChange: (m: PaymentMethod) => void;
 }) {
@@ -518,16 +534,15 @@ function MobileAchatCard({
           <p className="text-base font-bold text-slate-800 mt-0.5">{fmt(achat.amount_ttc)} DH</p>
         </div>
         <div className="flex items-center gap-1">
-          {achat.file_url && (
-            <a
-              href={achat.file_url}
-              target="_blank"
-              rel="noopener noreferrer"
+          {(achat.file_path || achat.file_url) && (
+            <button
+              type="button"
+              onClick={onOpenFile}
               title="Voir fichier"
               className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
             >
               <ExternalLink className="w-5 h-5" />
-            </a>
+            </button>
           )}
           <TableActionBtn title="Voir"      onClick={onView}><Eye    className="w-5 h-5" /></TableActionBtn>
           <TableActionBtn title="Modifier"  onClick={onEdit}><Edit2  className="w-5 h-5" /></TableActionBtn>

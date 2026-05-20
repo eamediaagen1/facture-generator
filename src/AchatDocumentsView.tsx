@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import type { Achat } from './types';
 import { exportAchatsTrimesterZip } from './services/exportService';
+import { getAchatFileUrl } from './services/achatService';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export default function AchatDocumentsView({ achats, loading, onView }: Props) {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [openTrim,     setOpenTrim]     = useState<1 | 2 | 3 | 4 | null>(null);
   const [exporting,    setExporting]    = useState<1 | 2 | 3 | 4 | null>(null);
+  const [openError,    setOpenError]    = useState('');
 
   async function handleExport(trim: 1 | 2 | 3 | 4) {
     setExporting(trim);
@@ -73,6 +75,22 @@ export default function AchatDocumentsView({ achats, loading, onView }: Props) {
       await exportAchatsTrimesterZip(Number(selectedYear) as number, trim);
     } finally {
       setExporting(null);
+    }
+  }
+
+  async function handleOpenFile(a: Achat) {
+    const src = a.file_path ?? a.file_url;
+    if (!src) return;
+    const win = window.open('', '_blank', 'noopener,noreferrer');
+    setOpenError('');
+    try {
+      const url = await getAchatFileUrl(src);
+      if (win) win.location.href = url;
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e: unknown) {
+      if (win) win.close();
+      setOpenError(e instanceof Error ? e.message : 'Impossible d’ouvrir le fichier');
+      setTimeout(() => setOpenError(''), 4000);
     }
   }
 
@@ -86,6 +104,12 @@ export default function AchatDocumentsView({ achats, loading, onView }: Props) {
 
   return (
     <div className="space-y-5">
+
+      {openError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 text-sm text-red-700">
+          {openError}
+        </div>
+      )}
 
       {/* Year selector */}
       <div className="flex items-center gap-3">
@@ -199,16 +223,15 @@ export default function AchatDocumentsView({ achats, loading, onView }: Props) {
                               </div>
                             </div>
                             <div className="shrink-0 flex items-center gap-1">
-                              {a.file_url && (
-                                <a
-                                  href={a.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                              {(a.file_path || a.file_url) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenFile(a)}
                                   title="Voir document"
                                   className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
                                 >
                                   <ExternalLink className="w-4 h-4" />
-                                </a>
+                                </button>
                               )}
                               <button
                                 onClick={() => onView(a.id)}
