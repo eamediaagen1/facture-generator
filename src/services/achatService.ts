@@ -33,6 +33,22 @@ function normalizeAchatFileUrl(achat: Achat): Achat {
   };
 }
 
+function normalizeAchatFilePath(pathOrUrl: string): string {
+  const marker = `/object/public/${BUCKET}/`;
+  const legacyMarker = `/object/public/${LEGACY_BUCKET}/`;
+  if (pathOrUrl.includes(marker)) return pathOrUrl.split(marker)[1].split('?')[0];
+  if (pathOrUrl.includes(legacyMarker)) return pathOrUrl.split(legacyMarker)[1].split('?')[0];
+  return pathOrUrl.replace(`${BUCKET}/`, '').replace(`${LEGACY_BUCKET}/`, '').replace(/^\/+/, '');
+}
+
+export async function getAchatFileUrl(pathOrUrl: string): Promise<string> {
+  const path = normalizeAchatFilePath(pathOrUrl);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 60 * 60);
+  if (!error && data?.signedUrl) return data.signedUrl;
+  const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return publicData.publicUrl;
+}
+
 export async function upsertAchat(achat: Achat): Promise<Achat> {
   const { data, error } = await supabase
     .from('achats')

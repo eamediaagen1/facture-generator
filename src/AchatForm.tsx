@@ -2,7 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { ArrowLeft, Save, Upload, X, ExternalLink, LogOut, Sparkles, CheckCircle } from 'lucide-react';
 import type { Achat, AchatPaymentStatus, AchatStatus, PaymentMethod } from './types';
 import {
-  getAchat, upsertAchat, validateFile, uploadAchatFile, deleteAchatFile,
+  getAchat, upsertAchat, validateFile, uploadAchatFile, deleteAchatFile, getAchatFileUrl,
 } from './services/achatService';
 import { signOut } from './services/authService';
 
@@ -68,7 +68,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
   useEffect(() => {
     if (mode === 'new' || !achatId) return;
     setLoading(true);
-    getAchat(achatId).then(a => {
+    getAchat(achatId).then(async a => {
       if (a) {
         setSupplierName(a.supplier_name);
         setInvoiceDate(a.invoice_date);
@@ -80,8 +80,8 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         setPaymentStatus(a.payment_status);
         setPaymentMethod(a.payment_method ?? 'Virement');
         setNotes(a.notes);
-        setExistingFileUrl(a.file_url);
         setExistingFilePath(a.file_path);
+        setExistingFileUrl(a.file_path ? await getAchatFileUrl(a.file_path) : a.file_url);
         setCreatedAt(a.created_at);
         setAchatStatus(a.status ?? 'validated');
         setAiConfidence(a.ai_confidence ?? null);
