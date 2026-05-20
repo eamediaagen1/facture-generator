@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Plus, Trash2, Printer, FileText, ArrowLeft, Save, LogOut, Stamp, X, AlertTriangle } from 'lucide-react';
 import { numberToFrenchWords } from './numberToWords';
 import type { Invoice, InvoiceStatus, LineItem, DocumentType, Client, InvoiceDraftPrefill } from './types';
-import { getFacture, upsertFacture, updatePdfPath } from './services/factureService';
+import { getFacture, upsertFacture, updatePdfPath, updateStatus } from './services/factureService';
 import { getClients } from './services/clientService';
 import { signOut } from './services/authService';
 import { sendConfirmationEmail } from './services/emailService';
@@ -322,8 +322,24 @@ export default function InvoiceForm({
         stampPos:         stampVisible ? stampPos : undefined,
       };
 
+      const finalStatus = invoice.status;
+      const shouldUnlockDevis = mode === 'edit' && docType === 'devis' && finalStatus !== 'Brouillon';
+      const invoiceForSave: Invoice = shouldUnlockDevis
+        ? { ...invoice, status: 'Brouillon' }
+        : invoice;
+
+      // Devis must remain editable even if the database locks "issued" documents.
+      // Save item changes while both old and new status are unlocked, then restore status.
+      if (shouldUnlockDevis) {
+        await updateStatus(invoice.id, 'Brouillon');
+      }
+
       // 1. Persist invoice data
-      await upsertFacture(invoice);
+      await upsertFacture(invoiceForSave);
+
+      if (shouldUnlockDevis) {
+        await updateStatus(invoice.id, finalStatus);
+      }
 
       // 2. Generate PDF from the rendered invoice and upload to Supabase Storage.
       //    Errors here are non-fatal — the invoice is already saved.
