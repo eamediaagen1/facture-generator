@@ -1,8 +1,8 @@
 import { supabase } from './supabaseClient';
 import type { Achat } from '../types';
 
-const BUCKET = 'achat-files';
-const LEGACY_BUCKET = 'achats-files';
+const BUCKET = 'achats-files';
+const LEGACY_BUCKET = 'achat-files';
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
 
@@ -107,7 +107,7 @@ export async function uploadAchatFile(file: File): Promise<{ url: string; path: 
   if (error) {
     if (error.message.toLowerCase().includes('bucket') || error.message.toLowerCase().includes('not found')) {
       throw new Error(
-        'Bucket de stockage introuvable. Créez le bucket "achat-files" (public) dans Supabase → Storage.',
+        'Bucket de stockage introuvable. Créez le bucket "achats-files" (public) dans Supabase → Storage.',
       );
     }
     throw error;

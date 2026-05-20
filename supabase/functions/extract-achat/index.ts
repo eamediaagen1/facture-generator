@@ -8,7 +8,7 @@ const CORS = {
 
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg']
 const MAX_SIZE = 5 * 1024 * 1024
-const ACHAT_BUCKET = 'achat-files'
+const ACHAT_BUCKET = 'achats-files'
 
 // MIME type by extension — covers empty type, application/octet-stream, and uppercase extensions (.JPG)
 const EXT_MIME: Record<string, string> = {
