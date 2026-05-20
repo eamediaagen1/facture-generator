@@ -34,10 +34,15 @@ function normalizeAchatFileUrl(achat: Achat): Achat {
 }
 
 function normalizeAchatFilePath(pathOrUrl: string): string {
-  const marker = `/object/public/${BUCKET}/`;
-  const legacyMarker = `/object/public/${LEGACY_BUCKET}/`;
-  if (pathOrUrl.includes(marker)) return pathOrUrl.split(marker)[1].split('?')[0];
-  if (pathOrUrl.includes(legacyMarker)) return pathOrUrl.split(legacyMarker)[1].split('?')[0];
+  const markers = [
+    `/object/public/${BUCKET}/`,
+    `/object/public/${LEGACY_BUCKET}/`,
+    `/object/sign/${BUCKET}/`,
+    `/object/sign/${LEGACY_BUCKET}/`,
+  ];
+  for (const marker of markers) {
+    if (pathOrUrl.includes(marker)) return pathOrUrl.split(marker)[1].split('?')[0];
+  }
   return pathOrUrl.replace(`${BUCKET}/`, '').replace(`${LEGACY_BUCKET}/`, '').replace(/^\/+/, '');
 }
 

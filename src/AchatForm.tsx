@@ -81,7 +81,7 @@ export default function AchatForm({ mode, achatId, onBack, onSaved }: Props) {
         setPaymentMethod(a.payment_method ?? 'Virement');
         setNotes(a.notes);
         setExistingFilePath(a.file_path);
-        setExistingFileUrl(a.file_path ? await getAchatFileUrl(a.file_path) : a.file_url);
+        setExistingFileUrl(a.file_path || a.file_url ? await getAchatFileUrl(a.file_path ?? a.file_url!) : null);
         setCreatedAt(a.created_at);
         setAchatStatus(a.status ?? 'validated');
         setAiConfidence(a.ai_confidence ?? null);
