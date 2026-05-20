@@ -8,6 +8,7 @@ const CORS = {
 
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg']
 const MAX_SIZE = 5 * 1024 * 1024
+const ACHAT_BUCKET = 'achat-files'
 
 // MIME type by extension — covers empty type, application/octet-stream, and uppercase extensions (.JPG)
 const EXT_MIME: Record<string, string> = {
@@ -357,11 +358,11 @@ Deno.serve(async (req: Request) => {
     let filePath: string | null = null
 
     const { error: storageError } = await supabase.storage
-      .from('achats-files')
+      .from(ACHAT_BUCKET)
       .upload(storagePath, fileBytes, { contentType: mimeType, upsert: false })
 
     if (!storageError) {
-      const { data } = supabase.storage.from('achats-files').getPublicUrl(storagePath)
+      const { data } = supabase.storage.from(ACHAT_BUCKET).getPublicUrl(storagePath)
       fileUrl = data.publicUrl
       filePath = storagePath
     }

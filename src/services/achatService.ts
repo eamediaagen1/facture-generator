@@ -1,7 +1,8 @@
 import { supabase } from './supabaseClient';
 import type { Achat } from '../types';
 
-const BUCKET = 'achats-files';
+const BUCKET = 'achat-files';
+const LEGACY_BUCKET = 'achats-files';
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp'];
 
@@ -11,7 +12,7 @@ export async function getAchats(): Promise<Achat[]> {
     .select('*')
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Achat[];
+  return ((data ?? []) as Achat[]).map(normalizeAchatFileUrl);
 }
 
 export async function getAchat(id: string): Promise<Achat | null> {
@@ -21,7 +22,15 @@ export async function getAchat(id: string): Promise<Achat | null> {
     .eq('id', id)
     .single();
   if (error) return null;
-  return data as Achat;
+  return normalizeAchatFileUrl(data as Achat);
+}
+
+function normalizeAchatFileUrl(achat: Achat): Achat {
+  if (!achat.file_url) return achat;
+  return {
+    ...achat,
+    file_url: achat.file_url.replace(`/object/public/${LEGACY_BUCKET}/`, `/object/public/${BUCKET}/`),
+  };
 }
 
 export async function upsertAchat(achat: Achat): Promise<Achat> {
@@ -77,7 +86,7 @@ export async function uploadAchatFile(file: File): Promise<{ url: string; path: 
   if (error) {
     if (error.message.toLowerCase().includes('bucket') || error.message.toLowerCase().includes('not found')) {
       throw new Error(
-        'Bucket de stockage introuvable. Créez le bucket "achats-files" (public) dans Supabase → Storage.',
+        'Bucket de stockage introuvable. Créez le bucket "achat-files" (public) dans Supabase → Storage.',
       );
     }
     throw error;
